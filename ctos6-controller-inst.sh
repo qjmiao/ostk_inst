@@ -9,8 +9,8 @@ set -u
 ##
 ## lokkit --disabled
 ##
-## pvcreate /dev/sdc
-## vgcreate cinder-volumes /dev/sdc
+## pvcreate /dev/sdb1
+## vgcreate cinder-volumes /dev/sdb1
 ##
 ## </etc/hosts>
 ##=== PREINST ===
@@ -50,36 +50,6 @@ chkconfig mysqld on
 service mysqld start
 
 mysqladmin -u root password pass
-
-mysql -u root --password=pass <<EOF
-create database keystone;
-grant all on keystone.* to 'keystone'@'%' identified by 'pass';
-grant all on keystone.* to 'keystone'@'localhost' identified by 'pass';
-EOF
-
-mysql -u root --password=pass <<EOF
-create database glance;
-grant all on glance.* to 'glance'@'%' identified by 'pass';
-grant all on glance.* to 'glance'@'localhost' identified by 'pass';
-EOF
-
-mysql -u root --password=pass <<EOF
-create database cinder;
-grant all on cinder.* to 'cinder'@'%' identified by 'pass';
-grant all on cinder.* to 'cinder'@'localhost' identified by 'pass';
-EOF
-
-mysql -u root --password=pass <<EOF
-create database quantum;
-grant all on quantum.* to 'quantum'@'%' identified by 'pass';
-grant all on quantum.* to 'quantum'@'localhost' identified by 'pass';
-EOF
-
-mysql -u root --password=pass <<EOF
-create database nova;
-grant all on nova.* to 'nova'@'%' identified by 'pass';
-grant all on nova.* to 'nova'@'localhost' identified by 'pass';
-EOF
 }
 
 ##
@@ -98,6 +68,12 @@ service qpidd start
 ##
 install_keystone()
 {
+mysql -u root --password=pass <<EOF
+create database keystone;
+grant all on keystone.* to 'keystone'@'%' identified by 'pass';
+grant all on keystone.* to 'keystone'@'localhost' identified by 'pass';
+EOF
+
 yum install openstack-keystone
 backup_cfg_file /etc/keystone/keystone.conf
 
@@ -176,6 +152,12 @@ keystone endpoint-create \
 ##
 install_glance()
 {
+mysql -u root --password=pass <<EOF
+create database glance;
+grant all on glance.* to 'glance'@'%' identified by 'pass';
+grant all on glance.* to 'glance'@'localhost' identified by 'pass';
+EOF
+
 yum install -y openstack-glance
 backup_cfg_file /etc/glance/glance-api.conf
 backup_cfg_file /etc/glance/glance-registry.conf
@@ -208,6 +190,12 @@ service openstack-glance-registry start
 ##
 install_cinder()
 {
+mysql -u root --password=pass <<EOF
+create database cinder;
+grant all on cinder.* to 'cinder'@'%' identified by 'pass';
+grant all on cinder.* to 'cinder'@'localhost' identified by 'pass';
+EOF
+
 yum install -y openstack-cinder
 backup_cfg_file /etc/cinder/cinder.conf
 
@@ -239,6 +227,12 @@ service openstack-cinder-scheduler start
 ##
 install_quantum()
 {
+mysql -u root --password=pass <<EOF
+create database quantum;
+grant all on quantum.* to 'quantum'@'%' identified by 'pass';
+grant all on quantum.* to 'quantum'@'localhost' identified by 'pass';
+EOF
+
 yum install -y openstack-quantum-linuxbridge
 backup_cfg_file /etc/quantum/quantum.conf
 backup_cfg_file /etc/quantum/metadata_agent.ini
@@ -302,6 +296,12 @@ service quantum-linuxbridge-agent start
 ##
 install_nova()
 {
+mysql -u root --password=pass <<EOF
+create database nova;
+grant all on nova.* to 'nova'@'%' identified by 'pass';
+grant all on nova.* to 'nova'@'localhost' identified by 'pass';
+EOF
+
 yum install -y openstack-nova openstack-nova-novncproxy
 backup_cfg_file /etc/nova/nova.conf
 
