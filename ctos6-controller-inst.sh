@@ -33,6 +33,12 @@ alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 export OS_SERVICE_TOKEN=1234567890
 export OS_SERVICE_ENDPOINT=http://OS_MY_IP:35357/v2.0
 
+usage() {
+    echo "Usage: $(basename $0) [WHAT]"
+
+    exit 1
+}
+
 backup_cfg_file() {
 if [! -f $1.orig]; then
     cp $1 $1.orig
@@ -362,7 +368,43 @@ chkconfig httpd on
 service httpd start
 }
 
-yum install -y openstack-utils
+if [ $# != 1 ]; then
+    usage
+fi
+
+case $1 in
+utils)
+    yum install -y openstack-utils
+    ;;
+
+keystone)
+    install_keystone
+    ;;
+
+glance)
+    install_glance
+    ;;
+
+cinder)
+    install_cinder
+    ;;
+
+quantum)
+    install_quantum
+    ;;
+
+nova)
+    install_nova
+    ;;
+
+horizon)
+    install_horizon
+    ;;
+
+*)
+    usage
+    ;;
+esac
 
 ##+++ POSTINST +++
 ## export OS_TENANT_NAME=admin
