@@ -30,9 +30,6 @@ alias Q_l3-cfg="openstack-config --set /etc/quantum/l3_agent.ini"
 alias Q_lb-cfg="openstack-config --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini"
 alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 
-export OS_SERVICE_TOKEN=1234567890
-export OS_SERVICE_ENDPOINT=http://OS_MY_IP:35357/v2.0
-
 usage() {
     echo "Usage: $(basename $0) [WHAT]"
 
@@ -74,6 +71,9 @@ service qpidd start
 ##
 install_keystone()
 {
+export OS_SERVICE_TOKEN=$(hexdump -e '"%x"' -n 5 /dev/urandom)
+export OS_SERVICE_ENDPOINT=http://OS_MY_IP:35357/v2.0
+
 mysql -u root --password=pass <<EOF
 create database keystone;
 grant all on keystone.* to 'keystone'@'%' identified by 'pass';
@@ -83,7 +83,7 @@ EOF
 yum install openstack-keystone
 backup_cfg_file /etc/keystone/keystone.conf
 
-keystone-cfg DEFAULT admin_token 1234567890
+keystone-cfg DEFAULT admin_token $OS_SERVICE_TOKEN
 keystone-cfg sql connection mysql://keystone:pass@$OS_MY_IP/keystone
 
 keystone-manage db_sync
