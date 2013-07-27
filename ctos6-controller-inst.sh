@@ -373,6 +373,14 @@ if [ $# != 1 ]; then
 fi
 
 case $1 in
+mysql)
+    install_mysql
+    ;;
+
+qpid)
+    install_qpid
+    ;;
+
 utils)
     yum install -y openstack-utils
     ;;
