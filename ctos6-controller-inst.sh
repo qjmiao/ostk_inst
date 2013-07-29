@@ -18,7 +18,13 @@ set -u
 OS_MY_IF=${OS_MY_IF:-eth1}
 OS_DATA_IF=${OS_DATA_IF:-eth2}
 OS_MY_IP=$(ip addr show dev $OS_MY_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
-MYSQL_PW=${MYSQL_PW:-pass}
+
+MYSQL_PW=${MYSQL_PW:-admin}
+OS_ADMIN_PW=${OS_ADMIN_PW:-admin}
+OS_GLANCE_PW=${OS_GLANCE_PW:-glance}
+OS_CINDER_PW=${OS_CINDER_PW:-cinder}
+OS_QUANTUM_PW=${OS_QUANTUM_PW:-quantum}
+OS_NOVA_PW=${OS_NOVA_PW:-nova}
 
 alias keystone-cfg="openstack-config --set /etc/keystone/keystone.conf"
 alias glance-api-cfg="openstack-config --set /etc/glance/glance-api.conf"
@@ -96,11 +102,11 @@ chown -R keystone.keystone /etc/keystone/ssl
 chkconfig openstack-keystone on
 service openstack-keystone start
 
-keystone user-create --name admin --pass pass
-keystone user-create --name glance --pass pass
-keystone user-create --name cinder --pass pass
-keystone user-create --name quantum --pass pass
-keystone user-create --name nova --pass pass
+keystone user-create --name admin --pass $OS_ADMIN_PW
+keystone user-create --name glance --pass $OS_GLANCE_PW
+keystone user-create --name cinder --pass $OS_CINDER_PW
+keystone user-create --name quantum --pass $OS_QUANTUM_PW
+keystone user-create --name nova --pass $OS_NOVA_PW
 
 keystone tenant-create --name admin
 keystone tenant-create --name service
@@ -177,14 +183,14 @@ glance-api-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
 glance-api-cfg keystone_authtoken auth_host $OS_MY_IP
 glance-api-cfg keystone_authtoken admin_tenant_name service
 glance-api-cfg keystone_authtoken admin_user glance
-glance-api-cfg keystone_authtoken admin_password pass
+glance-api-cfg keystone_authtoken admin_password $OS_GLANCE_PW
 glance-api-cfg paste_deploy flavor keystone
 
-glance-reg-cfg DEFAULT sql_connection mysql://glance:pass@$OS_MY_IP/glance
+glance-reg-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
 glance-reg-cfg keystone_authtoken auth_host $OS_MY_IP
 glance-reg-cfg keystone_authtoken admin_tenant_name service
 glance-reg-cfg keystone_authtoken admin_user glance
-glance-reg-cfg keystone_authtoken admin_password pass
+glance-reg-cfg keystone_authtoken admin_password $OS_GLANCE_PW
 glance-reg-cfg paste_deploy flavor keystone
 
 glance-manage db_sync
@@ -218,7 +224,7 @@ cinder-cfg DEFAULT auth_strategy keystone
 cinder-cfg keystone_authtoken auth_host $OS_MY_IP
 cinder-cfg keystone_authtoken admin_tenant_name service
 cinder-cfg keystone_authtoken admin_user cinder
-cinder-cfg keystone_authtoken admin_password pass
+cinder-cfg keystone_authtoken admin_password $OS_CINDER_PW
 
 cinder-manage db sync
 
@@ -262,27 +268,27 @@ quantum-cfg DEFAULT auth_strategy keystone
 quantum-cfg keystone_authtoken auth_host $OS_MY_IP
 quantum-cfg keystone_authtoken admin_tenant_name service
 quantum-cfg keystone_authtoken admin_user quantum
-quantum-cfg keystone_authtoken admin_password pass
+quantum-cfg keystone_authtoken admin_password $OS_QUANTUM_PW
 
 Q_meta-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 Q_meta-cfg DEFAULT auth_region Region1
 Q_meta-cfg DEFAULT admin_tenant_name service
 Q_meta-cfg DEFAULT admin_user quantum
-Q_meta-cfg DEFAULT admin_password pass
+Q_meta-cfg DEFAULT admin_password $OS_QUANTUM_PW
 Q_meta-cfg DEFAULT metadata_proxy_shared_secret abc
 
 Q_dhcp-cfg DEFAULT interface_driver quantum.agent.linux.interface.BridgeInterfaceDriver
 Q_dhcp-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 Q_dhcp-cfg DEFAULT admin_tenant_name service
 Q_dhcp-cfg DEFAULT admin_user quantum
-Q_dhcp-cfg DEFAULT admin_password pass
+Q_dhcp-cfg DEFAULT admin_password $OS_QUANTUM_PW
 
 Q_l3-cfg DEFAULT interface_driver quantum.agent.linux.interface.BridgeInterfaceDriver
 Q_l3-cfg DEFAULT external_network_bridge ""
 Q_l3-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 Q_l3-cfg DEFAULT admin_tenant_name service
 Q_l3-cfg DEFAULT admin_user quantum
-Q_l3-cfg DEFAULT admin_password pass
+Q_l3-cfg DEFAULT admin_password $OS_QUANTUM_PW
 
 if [! -L /etc/quantum/plugin.ini]; then
     ln -s plugins/linuxbridge/linuxbridge_conf.ini /etc/quantum/plugin.ini
@@ -341,13 +347,13 @@ nova-cfg DEFAULT quantum_auth_strategy keystone
 nova-cfg DEFAULT quantum_admin_auth_url http://$OS_CTL_IP:35357/v2.0
 nova-cfg DEFAULT quantum_admin_tenant_name service
 nova-cfg DEFAULT quantum_admin_username quantum
-nova-cfg DEFAULT quantum_admin_password pass
+nova-cfg DEFAULT quantum_admin_password $OS_QUANTUM_PW
 
 nova-cfg DEFAULT auth_strategy keystone
 nova-cfg keystone_authtoken auth_host $OS_MY_IP
 nova-cfg keystone_authtoken admin_tenant_name service
 nova-cfg keystone_authtoken admin_user nova
-nova-cfg keystone_authtoken admin_password pass
+nova-cfg keystone_authtoken admin_password $OS_NOVA_PW
 
 nova-manage db sync
 
@@ -428,7 +434,7 @@ esac
 ##+++ POSTINST +++
 ## export OS_TENANT_NAME=admin
 ## export OS_USERNAME=admin
-## export OS_PASSWORD=pass
+## export OS_PASSWORD=$OS_ADMIN_PW
 ## export OS_AUTH_URL=http://$OS_MY_IP:35357/v2.0
 ##
 ## nova flavor-create --is-public 1 m1.pico 6 128 0 1
