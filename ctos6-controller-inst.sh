@@ -18,6 +18,7 @@ set -u
 OS_MY_IF=${OS_MY_IF:-eth1}
 OS_DATA_IF=${OS_DATA_IF:-eth2}
 OS_MY_IP=$(ip addr show dev $OS_MY_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
+MYSQL_PW=${MYSQL_PW:-pass}
 
 alias keystone-cfg="openstack-config --set /etc/keystone/keystone.conf"
 alias glance-api-cfg="openstack-config --set /etc/glance/glance-api.conf"
@@ -52,7 +53,7 @@ yum install -y mysql-server
 chkconfig mysqld on
 service mysqld start
 
-mysqladmin -u root password pass
+mysqladmin -u root password $MYSQL_PW
 }
 
 ##
@@ -74,17 +75,19 @@ install_keystone()
 export OS_SERVICE_TOKEN=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 export OS_SERVICE_ENDPOINT=http://OS_MY_IP:35357/v2.0
 
-mysql -u root --password=pass <<EOF
+local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
+
+mysql -u root --password=$MYSQL_PW <<EOF
 create database keystone;
-grant all on keystone.* to 'keystone'@'%' identified by 'pass';
-grant all on keystone.* to 'keystone'@'localhost' identified by 'pass';
+grant all on keystone.* to keystone@'%' identified by '$pw';
+grant all on keystone.* to keystone@localhost identified by '$pw';
 EOF
 
 yum install openstack-keystone
 backup_cfg_file /etc/keystone/keystone.conf
 
 keystone-cfg DEFAULT admin_token $OS_SERVICE_TOKEN
-keystone-cfg sql connection mysql://keystone:pass@$OS_MY_IP/keystone
+keystone-cfg sql connection mysql://keystone:$pw@$OS_MY_IP/keystone
 
 keystone-manage db_sync
 keystone-manage pki_setup
@@ -158,17 +161,19 @@ keystone endpoint-create \
 ##
 install_glance()
 {
-mysql -u root --password=pass <<EOF
+local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
+
+mysql -u root --password=$MYSQL_PW <<EOF
 create database glance;
-grant all on glance.* to 'glance'@'%' identified by 'pass';
-grant all on glance.* to 'glance'@'localhost' identified by 'pass';
+grant all on glance.* to glance@'%' identified by '$pw';
+grant all on glance.* to glance@localhost identified by '$pw';
 EOF
 
 yum install -y openstack-glance
 backup_cfg_file /etc/glance/glance-api.conf
 backup_cfg_file /etc/glance/glance-registry.conf
 
-glance-api-cfg DEFAULT sql_connection mysql://glance:pass@$OS_MY_IP/glance
+glance-api-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
 glance-api-cfg keystone_authtoken auth_host $OS_MY_IP
 glance-api-cfg keystone_authtoken admin_tenant_name service
 glance-api-cfg keystone_authtoken admin_user glance
@@ -196,17 +201,19 @@ service openstack-glance-registry start
 ##
 install_cinder()
 {
-mysql -u root --password=pass <<EOF
+local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
+
+mysql -u root --password=$MYSQL_PW <<EOF
 create database cinder;
-grant all on cinder.* to 'cinder'@'%' identified by 'pass';
-grant all on cinder.* to 'cinder'@'localhost' identified by 'pass';
+grant all on cinder.* to cinder@'%' identified by '$pw';
+grant all on cinder.* to cinder@localhost identified by '$pw';
 EOF
 
 yum install -y openstack-cinder
 backup_cfg_file /etc/cinder/cinder.conf
 
 cinder-cfg DEFAULT iscsi_ip_address $OS_MY_IP
-cinder-cfg DEFAULT sql_connection mysql://cinder:pass@$OS_MY_IP/cinder
+cinder-cfg DEFAULT sql_connection mysql://cinder:$pw@$OS_MY_IP/cinder
 cinder-cfg DEFAULT auth_strategy keystone
 cinder-cfg keystone_authtoken auth_host $OS_MY_IP
 cinder-cfg keystone_authtoken admin_tenant_name service
@@ -233,10 +240,12 @@ service openstack-cinder-scheduler start
 ##
 install_quantum()
 {
-mysql -u root --password=pass <<EOF
+local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
+
+mysql -u root --password=$MYSQL_PW <<EOF
 create database quantum;
-grant all on quantum.* to 'quantum'@'%' identified by 'pass';
-grant all on quantum.* to 'quantum'@'localhost' identified by 'pass';
+grant all on quantum.* to quantum@'%' identified by '$pw';
+grant all on quantum.* to quantum@localhost identified by '$pw';
 EOF
 
 yum install -y openstack-quantum-linuxbridge
@@ -281,7 +290,7 @@ fi
 
 Q_lb-cfg VLANS tenant_network_type vlan
 Q_lb-cfg VLANS network_vlan_ranges physnet1:100:199
-Q_lb-cfg DATABASE sql_connection mysql://quantum:pass@$OS_MY_IP/quantum
+Q_lb-cfg DATABASE sql_connection mysql://quantum:$pw@$OS_MY_IP/quantum
 Q_lb-cfg LINUX_BRIDGE physical_interface_mappings physnet1:$OS_DATA_IF
 
 chkconfig quantum-server on
@@ -302,10 +311,12 @@ service quantum-linuxbridge-agent start
 ##
 install_nova()
 {
-mysql -u root --password=pass <<EOF
+local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
+
+mysql -u root --password=$MYSQL_PW <<EOF
 create database nova;
-grant all on nova.* to 'nova'@'%' identified by 'pass';
-grant all on nova.* to 'nova'@'localhost' identified by 'pass';
+grant all on nova.* to nova@'%' identified by '$pw';
+grant all on nova.* to nova@localhost identified by '$pw';
 EOF
 
 yum install -y openstack-nova openstack-nova-novncproxy
@@ -317,7 +328,7 @@ service libvirtd start
 virsh net-destroy default
 virsh net-undefine default
 
-nova-cfg DEFAULT sql_connection mysql://nova:pass@$OS_MY_IP/nova
+nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_MY_IP/nova
 nova-cfg DEFAULT metadata_host $OS_MY_IP
 nova-cfg DEFAULT service_quantum_metadata_proxy true
 nova-cfg DEFAULT quantum_metadata_proxy_shared_secret abc
