@@ -275,7 +275,7 @@ Q_meta-cfg DEFAULT auth_region Region1
 Q_meta-cfg DEFAULT admin_tenant_name service
 Q_meta-cfg DEFAULT admin_user quantum
 Q_meta-cfg DEFAULT admin_password $OS_QUANTUM_PW
-Q_meta-cfg DEFAULT metadata_proxy_shared_secret abc
+Q_meta-cfg DEFAULT metadata_proxy_shared_secret 1234567890
 
 Q_dhcp-cfg DEFAULT interface_driver quantum.agent.linux.interface.BridgeInterfaceDriver
 Q_dhcp-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
@@ -337,7 +337,7 @@ virsh net-undefine default
 nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_MY_IP/nova
 nova-cfg DEFAULT metadata_host $OS_MY_IP
 nova-cfg DEFAULT service_quantum_metadata_proxy true
-nova-cfg DEFAULT quantum_metadata_proxy_shared_secret abc
+nova-cfg DEFAULT quantum_metadata_proxy_shared_secret 1234567890
 
 nova-cfg DEFAULT network_api_class nova.network.quantumv2.api.API
 nova-cfg DEFAULT security_group_api quantum
