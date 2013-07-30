@@ -15,9 +15,9 @@ set -u
 ## </etc/hosts>
 ##=== PREINST ===
 
-OS_MY_IF=${OS_MY_IF:-eth1}
-OS_DATA_IF=${OS_DATA_IF:-eth2}
-OS_MY_IP=$(ip addr show dev $OS_MY_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
+OS_CTL_IF=${OS_CTL_IF:-eth4}
+OS_DATA_IF=${OS_DATA_IF:-eth3}
+OS_CTL_IP=$(ip addr show dev $OS_CTL_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
 
 MYSQL_PW=${MYSQL_PW:-admin}
 OS_ADMIN_PW=${OS_ADMIN_PW:-admin}
@@ -79,7 +79,7 @@ service qpidd start
 install_keystone()
 {
 export OS_SERVICE_TOKEN=$(hexdump -e '"%x"' -n 5 /dev/urandom)
-export OS_SERVICE_ENDPOINT=http://OS_MY_IP:35357/v2.0
+export OS_SERVICE_ENDPOINT=http://OS_CTL_IP:35357/v2.0
 
 local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 
@@ -93,7 +93,7 @@ yum install openstack-keystone
 backup_cfg_file /etc/keystone/keystone.conf
 
 keystone-cfg DEFAULT admin_token $OS_SERVICE_TOKEN
-keystone-cfg sql connection mysql://keystone:$pw@$OS_MY_IP/keystone
+keystone-cfg sql connection mysql://keystone:$pw@$OS_CTL_IP/keystone
 
 keystone-manage db_sync
 keystone-manage pki_setup
@@ -133,33 +133,33 @@ NOVA_SID=$(keystone service-list | awk '/nova/ {print $2}')
 
 keystone endpoint-create \
     --region Region1 --service-id $KEYSTONE_SID \
-    --publicurl http://$OS_MY_IP:5000/v2.0 \
-    --internalurl http://$OS_MY_IP:5000/v2.0 \
-    --adminurl http://$OS_MY_IP:35357/v2.0
+    --publicurl http://$OS_CTL_IP:5000/v2.0 \
+    --internalurl http://$OS_CTL_IP:5000/v2.0 \
+    --adminurl http://$OS_CTL_IP:35357/v2.0
 
 keystone endpoint-create \
     --region Region1 --service-id $GLANCE_SID \
-    --publicurl http://$OS_MY_IP:9292 \
-    --internalurl http://$OS_MY_IP:9292 \
-    --adminurl http://$OS_MY_IP:9292
+    --publicurl http://$OS_CTL_IP:9292 \
+    --internalurl http://$OS_CTL_IP:9292 \
+    --adminurl http://$OS_CTL_IP:9292
 
 keystone endpoint-create \
     --region Region1 --service-id $CINDER_SID \
-    --publicurl http://$OS_MY_IP:8776/v1/$\(tenant_id\)s \
-    --internalurl http://$OS_MY_IP:8776/v1/$\(tenant_id\)s \
-    --adminurl http://$OS_MY_IP:8776/v1/$\(tenant_id\)s
+    --publicurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s \
+    --internalurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s \
+    --adminurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s
 
 keystone endpoint-create \
     --region Region1 --service-id $QUANTUM_SID \
-    --publicurl http://$OS_MY_IP:9696 \
-    --internalurl http://$OS_MY_IP:9696 \
-    --adminurl http://$OS_MY_IP:9696
+    --publicurl http://$OS_CTL_IP:9696 \
+    --internalurl http://$OS_CTL_IP:9696 \
+    --adminurl http://$OS_CTL_IP:9696
 
 keystone endpoint-create \
     --region Region1 --service-id $NOVA_SID \
-    --publicurl http://$OS_MY_IP:8774/v2/$\(tenant_id\)s \
-    --internalurl http://$OS_MY_IP:8774/v2/$\(tenant_id\)s \
-    --adminurl http://$OS_MY_IP:8774/v2/$\(tenant_id\)s
+    --publicurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s \
+    --internalurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s \
+    --adminurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s
 }
 
 ##
@@ -179,15 +179,15 @@ yum install -y openstack-glance
 backup_cfg_file /etc/glance/glance-api.conf
 backup_cfg_file /etc/glance/glance-registry.conf
 
-glance-api-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
-glance-api-cfg keystone_authtoken auth_host $OS_MY_IP
+glance-api-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_CTL_IP/glance
+glance-api-cfg keystone_authtoken auth_host $OS_CTL_IP
 glance-api-cfg keystone_authtoken admin_tenant_name service
 glance-api-cfg keystone_authtoken admin_user glance
 glance-api-cfg keystone_authtoken admin_password $OS_GLANCE_PW
 glance-api-cfg paste_deploy flavor keystone
 
-glance-reg-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
-glance-reg-cfg keystone_authtoken auth_host $OS_MY_IP
+glance-reg-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_CTL_IP/glance
+glance-reg-cfg keystone_authtoken auth_host $OS_CTL_IP
 glance-reg-cfg keystone_authtoken admin_tenant_name service
 glance-reg-cfg keystone_authtoken admin_user glance
 glance-reg-cfg keystone_authtoken admin_password $OS_GLANCE_PW
@@ -218,10 +218,10 @@ EOF
 yum install -y openstack-cinder
 backup_cfg_file /etc/cinder/cinder.conf
 
-cinder-cfg DEFAULT iscsi_ip_address $OS_MY_IP
-cinder-cfg DEFAULT sql_connection mysql://cinder:$pw@$OS_MY_IP/cinder
+cinder-cfg DEFAULT iscsi_ip_address $OS_CTL_IP
+cinder-cfg DEFAULT sql_connection mysql://cinder:$pw@$OS_CTL_IP/cinder
 cinder-cfg DEFAULT auth_strategy keystone
-cinder-cfg keystone_authtoken auth_host $OS_MY_IP
+cinder-cfg keystone_authtoken auth_host $OS_CTL_IP
 cinder-cfg keystone_authtoken admin_tenant_name service
 cinder-cfg keystone_authtoken admin_user cinder
 cinder-cfg keystone_authtoken admin_password $OS_CINDER_PW
@@ -263,14 +263,14 @@ backup_cfg_file /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini
 
 quantum-cfg DEFAULT core_plugin quantum.plugins.linuxbridge.lb_quantum_plugin.LinuxBridgePluginV2
 quantum-cfg DEFAULT rpc_backend quantum.openstack.common.rpc.impl_qpid
-quantum-cfg DEFAULT qpid_hostname $OS_MY_IP
+quantum-cfg DEFAULT qpid_hostname $OS_CTL_IP
 quantum-cfg DEFAULT auth_strategy keystone
-quantum-cfg keystone_authtoken auth_host $OS_MY_IP
+quantum-cfg keystone_authtoken auth_host $OS_CTL_IP
 quantum-cfg keystone_authtoken admin_tenant_name service
 quantum-cfg keystone_authtoken admin_user quantum
 quantum-cfg keystone_authtoken admin_password $OS_QUANTUM_PW
 
-Q_meta-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
+Q_meta-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
 Q_meta-cfg DEFAULT auth_region Region1
 Q_meta-cfg DEFAULT admin_tenant_name service
 Q_meta-cfg DEFAULT admin_user quantum
@@ -278,14 +278,14 @@ Q_meta-cfg DEFAULT admin_password $OS_QUANTUM_PW
 Q_meta-cfg DEFAULT metadata_proxy_shared_secret 1234567890
 
 Q_dhcp-cfg DEFAULT interface_driver quantum.agent.linux.interface.BridgeInterfaceDriver
-Q_dhcp-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
+Q_dhcp-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
 Q_dhcp-cfg DEFAULT admin_tenant_name service
 Q_dhcp-cfg DEFAULT admin_user quantum
 Q_dhcp-cfg DEFAULT admin_password $OS_QUANTUM_PW
 
 Q_l3-cfg DEFAULT interface_driver quantum.agent.linux.interface.BridgeInterfaceDriver
 Q_l3-cfg DEFAULT external_network_bridge ""
-Q_l3-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
+Q_l3-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
 Q_l3-cfg DEFAULT admin_tenant_name service
 Q_l3-cfg DEFAULT admin_user quantum
 Q_l3-cfg DEFAULT admin_password $OS_QUANTUM_PW
@@ -296,7 +296,7 @@ fi
 
 Q_lb-cfg VLANS tenant_network_type vlan
 Q_lb-cfg VLANS network_vlan_ranges physnet1:100:199
-Q_lb-cfg DATABASE sql_connection mysql://quantum:$pw@$OS_MY_IP/quantum
+Q_lb-cfg DATABASE sql_connection mysql://quantum:$pw@$OS_CTL_IP/quantum
 Q_lb-cfg LINUX_BRIDGE physical_interface_mappings physnet1:$OS_DATA_IF
 
 chkconfig quantum-server on
@@ -334,8 +334,8 @@ service libvirtd start
 virsh net-destroy default
 virsh net-undefine default
 
-nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_MY_IP/nova
-nova-cfg DEFAULT metadata_host $OS_MY_IP
+nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_CTL_IP/nova
+nova-cfg DEFAULT metadata_host $OS_CTL_IP
 nova-cfg DEFAULT service_quantum_metadata_proxy true
 nova-cfg DEFAULT quantum_metadata_proxy_shared_secret 1234567890
 
@@ -350,7 +350,7 @@ nova-cfg DEFAULT quantum_admin_username quantum
 nova-cfg DEFAULT quantum_admin_password $OS_QUANTUM_PW
 
 nova-cfg DEFAULT auth_strategy keystone
-nova-cfg keystone_authtoken auth_host $OS_MY_IP
+nova-cfg keystone_authtoken auth_host $OS_CTL_IP
 nova-cfg keystone_authtoken admin_tenant_name service
 nova-cfg keystone_authtoken admin_user nova
 nova-cfg keystone_authtoken admin_password $OS_NOVA_PW
@@ -435,7 +435,7 @@ esac
 ## export OS_TENANT_NAME=admin
 ## export OS_USERNAME=admin
 ## export OS_PASSWORD=$OS_ADMIN_PW
-## export OS_AUTH_URL=http://$OS_MY_IP:35357/v2.0
+## export OS_AUTH_URL=http://$OS_CTL_IP:35357/v2.0
 ##
 ## nova flavor-create --is-public 1 m1.pico 6 128 0 1
 ##
