@@ -18,6 +18,7 @@ set -u
 OS_CTL_IF=${OS_CTL_IF:-eth4}
 OS_DATA_IF=${OS_DATA_IF:-eth3}
 OS_CTL_IP=$(ip addr show dev $OS_CTL_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
+OS_ISCSI_IP=$(ip addr show dev $OS_DATA_IF.10 | awk '/inet / {split($2, a, "/"); print a[1]}')
 
 MYSQL_PW=${MYSQL_PW:-admin}
 OS_ADMIN_PW=${OS_ADMIN_PW:-admin}
@@ -218,7 +219,8 @@ EOF
 yum install -y openstack-cinder
 backup_cfg_file /etc/cinder/cinder.conf
 
-cinder-cfg DEFAULT iscsi_ip_address $OS_CTL_IP
+cinder-cfg DEFAULT iscsi_ip_address $OS_ISCSI_IP
+cinder-cfg DEFAULT volume_group vg_$(hostname -s)
 cinder-cfg DEFAULT sql_connection mysql://cinder:$pw@$OS_CTL_IP/cinder
 cinder-cfg DEFAULT auth_strategy keystone
 cinder-cfg keystone_authtoken auth_host $OS_CTL_IP
