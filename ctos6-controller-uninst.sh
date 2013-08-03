@@ -2,7 +2,7 @@
 set -e
 set -u
 
-MYSQL_PW=${MYSQL_PW:-pass}
+MYSQL_PW=${MYSQL_PW:-admin}
 
 usage() {
     echo "Usage: $(basename $0) [WHAT]"
