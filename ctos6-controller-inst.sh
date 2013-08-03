@@ -9,16 +9,15 @@ set -u
 ##
 ## lokkit --disabled
 ##
-## pvcreate /dev/sdb1
-## vgcreate cinder-volumes /dev/sdb1
-##
 ## </etc/hosts>
 ##=== PREINST ===
 
 OS_CTL_IF=${OS_CTL_IF:-eth4}
-OS_DATA_IF=${OS_DATA_IF:-eth3}
+OS_DATA_IF=${OS_DATA_IF:-eth1}
+OS_EXT_IF=${OS_EXT_IF:-eth3}
 OS_CTL_IP=$(ip addr show dev $OS_CTL_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
 OS_ISCSI_IP=$(ip addr show dev $OS_DATA_IF.10 | awk '/inet / {split($2, a, "/"); print a[1]}')
+OS_NET_VLANS=100:199
 
 MYSQL_PW=${MYSQL_PW:-admin}
 OS_ADMIN_PW=${OS_ADMIN_PW:-admin}
@@ -45,7 +44,7 @@ usage() {
 }
 
 backup_cfg_file() {
-if [! -f $1.orig]; then
+if [ ! -f $1.orig ]; then
     cp $1 $1.orig
 fi
 }
@@ -80,7 +79,7 @@ service qpidd start
 install_keystone()
 {
 export OS_SERVICE_TOKEN=$(hexdump -e '"%x"' -n 5 /dev/urandom)
-export OS_SERVICE_ENDPOINT=http://OS_CTL_IP:35357/v2.0
+export OS_SERVICE_ENDPOINT=http://$OS_CTL_IP:35357/v2.0
 
 local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 
@@ -88,9 +87,10 @@ mysql -u root --password=$MYSQL_PW <<EOF
 create database keystone;
 grant all on keystone.* to keystone@'%' identified by '$pw';
 grant all on keystone.* to keystone@localhost identified by '$pw';
+flush privileges;
 EOF
 
-yum install openstack-keystone
+yum install -y openstack-keystone
 backup_cfg_file /etc/keystone/keystone.conf
 
 keystone-cfg DEFAULT admin_token $OS_SERVICE_TOKEN
@@ -102,6 +102,10 @@ chown -R keystone.keystone /etc/keystone/ssl
 
 chkconfig openstack-keystone on
 service openstack-keystone start
+
+while ! netstat -ntl | grep 35357 > /dev/null; do
+    sleep 1
+done
 
 keystone user-create --name admin --pass $OS_ADMIN_PW
 keystone user-create --name glance --pass $OS_GLANCE_PW
@@ -174,6 +178,7 @@ mysql -u root --password=$MYSQL_PW <<EOF
 create database glance;
 grant all on glance.* to glance@'%' identified by '$pw';
 grant all on glance.* to glance@localhost identified by '$pw';
+flush privileges;
 EOF
 
 yum install -y openstack-glance
@@ -214,6 +219,7 @@ mysql -u root --password=$MYSQL_PW <<EOF
 create database cinder;
 grant all on cinder.* to cinder@'%' identified by '$pw';
 grant all on cinder.* to cinder@localhost identified by '$pw';
+flush privileges;
 EOF
 
 yum install -y openstack-cinder
@@ -254,6 +260,7 @@ mysql -u root --password=$MYSQL_PW <<EOF
 create database quantum;
 grant all on quantum.* to quantum@'%' identified by '$pw';
 grant all on quantum.* to quantum@localhost identified by '$pw';
+flush privileges;
 EOF
 
 yum install -y openstack-quantum-linuxbridge
@@ -292,14 +299,14 @@ Q_l3-cfg DEFAULT admin_tenant_name service
 Q_l3-cfg DEFAULT admin_user quantum
 Q_l3-cfg DEFAULT admin_password $OS_QUANTUM_PW
 
-if [! -L /etc/quantum/plugin.ini]; then
+if [ ! -L /etc/quantum/plugin.ini ]; then
     ln -s plugins/linuxbridge/linuxbridge_conf.ini /etc/quantum/plugin.ini
 fi
 
 Q_lb-cfg VLANS tenant_network_type vlan
-Q_lb-cfg VLANS network_vlan_ranges physnet1:100:199
+Q_lb-cfg VLANS network_vlan_ranges physext,physnet1:$OS_NET_VLANS
 Q_lb-cfg DATABASE sql_connection mysql://quantum:$pw@$OS_CTL_IP/quantum
-Q_lb-cfg LINUX_BRIDGE physical_interface_mappings physnet1:$OS_DATA_IF
+Q_lb-cfg LINUX_BRIDGE physical_interface_mappings physext:$OS_EXT_IF,physnet1:$OS_DATA_IF
 
 chkconfig quantum-server on
 chkconfig quantum-metadata-agent on
@@ -325,6 +332,7 @@ mysql -u root --password=$MYSQL_PW <<EOF
 create database nova;
 grant all on nova.* to nova@'%' identified by '$pw';
 grant all on nova.* to nova@localhost identified by '$pw';
+flush privileges;
 EOF
 
 yum install -y openstack-nova openstack-nova-novncproxy
@@ -363,7 +371,6 @@ chkconfig openstack-nova-api on
 chkconfig openstack-nova-cert on
 chkconfig openstack-nova-conductor on
 chkconfig openstack-nova-consoleauth on
-chkconfig openstack-nova-network on
 chkconfig openstack-nova-novncproxy on
 chkconfig openstack-nova-scheduler on
 
@@ -371,7 +378,6 @@ service openstack-nova-api start
 service openstack-nova-cert start
 service openstack-nova-conductor start
 service openstack-nova-consoleauth start
-service openstack-nova-network start
 service openstack-nova-novncproxy start
 service openstack-nova-scheduler start
 }
@@ -442,4 +448,7 @@ esac
 ## nova flavor-create --is-public 1 m1.pico 6 128 0 1
 ##
 ## http://download.cirros-cloud.net/0.3.1/cirros-0.3.1-x86_64-disk.img
+##
+## quantum net-create ext --provider:network_type flat \
+##      --provider:physical_network physext --router:external=True
 ##=== POSTINST ===
