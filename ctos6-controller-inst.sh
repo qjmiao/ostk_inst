@@ -308,9 +308,9 @@ if [ ! -L /etc/quantum/plugin.ini ]; then
 fi
 
 Q_lb-cfg VLANS tenant_network_type vlan
-Q_lb-cfg VLANS network_vlan_ranges physext,physnet1:$OS_NET_VLANS
+Q_lb-cfg VLANS network_vlan_ranges physext,physint:$OS_NET_VLANS
 Q_lb-cfg DATABASE sql_connection mysql://quantum:$pw@$OS_CTL_IP/quantum
-Q_lb-cfg LINUX_BRIDGE physical_interface_mappings physext:$OS_EXT_IF,physnet1:$OS_DATA_IF
+Q_lb-cfg LINUX_BRIDGE physical_interface_mappings physext:$OS_EXT_IF,physint:$OS_DATA_IF
 
 chkconfig quantum-server on
 chkconfig quantum-metadata-agent on
