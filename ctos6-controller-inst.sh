@@ -12,20 +12,6 @@ set -u
 ## </etc/hosts>
 ##=== PREINST ===
 
-OS_CTL_IF=${OS_CTL_IF:-eth4}
-OS_DATA_IF=${OS_DATA_IF:-eth1}
-OS_EXT_IF=${OS_EXT_IF:-eth3}
-OS_CTL_IP=$(ip addr show dev $OS_CTL_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
-OS_ISCSI_IP=$(ip addr show dev $OS_DATA_IF.10 | awk '/inet / {split($2, a, "/"); print a[1]}')
-OS_NET_VLANS=100:199
-
-MYSQL_PW=${MYSQL_PW:-admin}
-OS_ADMIN_PW=${OS_ADMIN_PW:-admin}
-OS_GLANCE_PW=${OS_GLANCE_PW:-glance}
-OS_CINDER_PW=${OS_CINDER_PW:-cinder}
-OS_QUANTUM_PW=${OS_QUANTUM_PW:-quantum}
-OS_NOVA_PW=${OS_NOVA_PW:-nova}
-
 alias keystone-cfg="openstack-config --set /etc/keystone/keystone.conf"
 alias glance-api-cfg="openstack-config --set /etc/glance/glance-api.conf"
 alias glance-reg-cfg="openstack-config --set /etc/glance/glance-registry.conf"
@@ -60,6 +46,11 @@ chkconfig mysqld on
 service mysqld start
 
 mysqladmin -u root password $MYSQL_PW
+
+mysql -u root --password=$MYSQL_PW <<EOF
+drop user ''@localhost;
+drop user ''@$(hostname);
+EOF
 }
 
 ##
@@ -86,7 +77,7 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database keystone;
 grant all on keystone.* to keystone@'%' identified by '$pw';
-grant all on keystone.* to keystone@localhost identified by '$pw';
+#grant all on keystone.* to keystone@localhost identified by '$pw';
 flush privileges;
 EOF
 
@@ -118,11 +109,22 @@ keystone tenant-create --name service
 
 keystone role-create --name admin
 
-keystone user-role-add --user admin --role admin --tenant admin
-keystone user-role-add --user glance --role admin --tenant service
-keystone user-role-add --user cinder --role admin --tenant service
-keystone user-role-add --user quantum --role admin --tenant service
-keystone user-role-add --user nova --role admin --tenant service
+local admin_uid=$(keystone user-list | awk '/admin/ {print $2}')
+local glance_uid=$(keystone user-list | awk '/glance/ {print $2}')
+local cinder_uid=$(keystone user-list | awk '/cinder/ {print $2}')
+local quantum_uid=$(keystone user-list | awk '/quantum/ {print $2}')
+local nova_uid=$(keystone user-list | awk '/nova/ {print $2}')
+
+local admin_tid=$(keystone tenant-list | awk '/admin/ {print $2}')
+local service_tid=$(keystone tenant-list | awk '/service/ {print $2}')
+
+local admin_rid=$(keystone role-list | awk '/admin/ {print $2}')
+
+keystone user-role-add --user-id $admin_uid   --role-id $admin_rid --tenant-id $admin_tid
+keystone user-role-add --user-id $glance_uid  --role-id $admin_rid --tenant-id $service_tid
+keystone user-role-add --user-id $cinder_uid  --role-id $admin_rid --tenant-id $service_tid
+keystone user-role-add --user-id $quantum_uid --role-id $admin_rid --tenant-id $service_tid
+keystone user-role-add --user-id $nova_uid    --role-id $admin_rid --tenant-id $service_tid
 
 keystone service-create --name keystone --type identity --description "Identity Service"
 keystone service-create --name glance   --type image    --description "Image Service"
@@ -130,38 +132,38 @@ keystone service-create --name cinder   --type volume   --description "Volume Se
 keystone service-create --name quantum  --type network  --description "Network Service"
 keystone service-create --name nova     --type compute  --description "Compute Service"
 
-KEYSTONE_SID=$(keystone service-list | awk '/keystone/ {print $2}')
-GLANCE_SID=$(keystone service-list | awk '/glance/ {print $2}')
-CINDER_SID=$(keystone service-list | awk '/cinder/ {print $2}')
-QUANTUM_SID=$(keystone service-list | awk '/quantum/ {print $2}')
-NOVA_SID=$(keystone service-list | awk '/nova/ {print $2}')
+local keystone_sid=$(keystone service-list | awk '/keystone/ {print $2}')
+local glance_sid=$(keystone service-list | awk '/glance/ {print $2}')
+local cinder_sid=$(keystone service-list | awk '/cinder/ {print $2}')
+local quantum_sid=$(keystone service-list | awk '/quantum/ {print $2}')
+local nova_sid=$(keystone service-list | awk '/nova/ {print $2}')
 
 keystone endpoint-create \
-    --region Region1 --service-id $KEYSTONE_SID \
+    --region Region1 --service-id $keystone_sid \
     --publicurl http://$OS_CTL_IP:5000/v2.0 \
     --internalurl http://$OS_CTL_IP:5000/v2.0 \
     --adminurl http://$OS_CTL_IP:35357/v2.0
 
 keystone endpoint-create \
-    --region Region1 --service-id $GLANCE_SID \
+    --region Region1 --service-id $glance_sid \
     --publicurl http://$OS_CTL_IP:9292 \
     --internalurl http://$OS_CTL_IP:9292 \
     --adminurl http://$OS_CTL_IP:9292
 
 keystone endpoint-create \
-    --region Region1 --service-id $CINDER_SID \
+    --region Region1 --service-id $cinder_sid \
     --publicurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s \
     --internalurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s \
     --adminurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s
 
 keystone endpoint-create \
-    --region Region1 --service-id $QUANTUM_SID \
+    --region Region1 --service-id $quantum_sid \
     --publicurl http://$OS_CTL_IP:9696 \
     --internalurl http://$OS_CTL_IP:9696 \
     --adminurl http://$OS_CTL_IP:9696
 
 keystone endpoint-create \
-    --region Region1 --service-id $NOVA_SID \
+    --region Region1 --service-id $nova_sid \
     --publicurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s \
     --internalurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s \
     --adminurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s
@@ -177,7 +179,7 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database glance;
 grant all on glance.* to glance@'%' identified by '$pw';
-grant all on glance.* to glance@localhost identified by '$pw';
+#grant all on glance.* to glance@localhost identified by '$pw';
 flush privileges;
 EOF
 
@@ -218,15 +220,17 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database cinder;
 grant all on cinder.* to cinder@'%' identified by '$pw';
-grant all on cinder.* to cinder@localhost identified by '$pw';
+#grant all on cinder.* to cinder@localhost identified by '$pw';
 flush privileges;
 EOF
 
 yum install -y openstack-cinder
 backup_cfg_file /etc/cinder/cinder.conf
 
+cinder-cfg DEFAULT rpc_backend cinder.openstack.common.rpc.impl_qpid
+cinder-cfg DEFAULT qpid_hostname $OS_CTL_IP
 cinder-cfg DEFAULT iscsi_ip_address $OS_ISCSI_IP
-cinder-cfg DEFAULT volume_group vg_$(hostname -s)
+cinder-cfg DEFAULT volume_group $OS_ISCSI_VG
 cinder-cfg DEFAULT sql_connection mysql://cinder:$pw@$OS_CTL_IP/cinder
 cinder-cfg DEFAULT auth_strategy keystone
 cinder-cfg keystone_authtoken auth_host $OS_CTL_IP
@@ -259,7 +263,7 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database quantum;
 grant all on quantum.* to quantum@'%' identified by '$pw';
-grant all on quantum.* to quantum@localhost identified by '$pw';
+#grant all on quantum.* to quantum@localhost identified by '$pw';
 flush privileges;
 EOF
 
@@ -331,7 +335,7 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database nova;
 grant all on nova.* to nova@'%' identified by '$pw';
-grant all on nova.* to nova@localhost identified by '$pw';
+#grant all on nova.* to nova@localhost identified by '$pw';
 flush privileges;
 EOF
 
@@ -344,6 +348,8 @@ service libvirtd start
 virsh net-destroy default
 virsh net-undefine default
 
+nova-cfg DEFAULT rpc_backend nova.openstack.common.rpc.impl_qpid
+nova-cfg DEFAULT qpid_hostname $OS_CTL_IP
 nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_CTL_IP/nova
 nova-cfg DEFAULT metadata_host $OS_CTL_IP
 nova-cfg DEFAULT service_quantum_metadata_proxy true
@@ -383,6 +389,25 @@ service openstack-nova-scheduler start
 }
 
 ##
+## Setup nova-compute
+##
+install_compute()
+{
+if [ ! -c /dev/kvm ]; then
+    nova-cfg DEFAULT libvirt_type qemu
+fi
+
+nova-cfg DEFAULT glance_host $OS_CTL_IP
+
+#nova-cfg DEFAULT vncserver_listen 0.0.0.0
+nova-cfg DEFAULT vncserver_proxyclient_address $OS_CTL_IP
+nova-cfg DEFAULT novncproxy_base_url http://$OS_CTL_IP:6080/vnc_auto.html
+
+chkconfig openstack-nova-compute on
+service openstack-nova-compute start
+}
+
+##
 ## Install OpenStack Horizon
 ##
 install_horizon()
@@ -393,11 +418,30 @@ chkconfig httpd on
 service httpd start
 }
 
-if [ $# != 1 ]; then
+if [ $# != 2 ]; then
     usage
 fi
 
-case $1 in
+source $1
+
+OS_CTL_IF=${OS_CTL_IF:-eth0}
+OS_DATA_IF=${OS_DATA_IF:-eth1}
+OS_EXT_IF=${OS_EXT_IF:-eth2}
+OS_ISCSI_IF=${OS_ISCSI_IF:-eth3}
+OS_ISCSI_VG=${OS_ISCSI_VG:-vg_$(hostname -s)}
+OS_NET_VLANS=${OS_NET_VLANS:-100:199}
+
+MYSQL_PW=${MYSQL_PW:-admin}
+OS_ADMIN_PW=${OS_ADMIN_PW:-admin}
+OS_GLANCE_PW=${OS_GLANCE_PW:-glance}
+OS_CINDER_PW=${OS_CINDER_PW:-cinder}
+OS_QUANTUM_PW=${OS_QUANTUM_PW:-quantum}
+OS_NOVA_PW=${OS_NOVA_PW:-nova}
+
+OS_CTL_IP=$(ip addr show dev $OS_CTL_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
+OS_ISCSI_IP=$(ip addr show dev $OS_ISCSI_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
+
+case $2 in
 mysql)
     install_mysql
     ;;
@@ -434,21 +478,18 @@ horizon)
     install_horizon
     ;;
 
+compute)
+    install_compute
+    ;;
+
 *)
     usage
     ;;
 esac
 
 ##+++ POSTINST +++
-## export OS_TENANT_NAME=admin
-## export OS_USERNAME=admin
-## export OS_PASSWORD=$OS_ADMIN_PW
-## export OS_AUTH_URL=http://$OS_CTL_IP:35357/v2.0
-##
-## nova flavor-create --is-public 1 m1.pico 6 128 0 1
-##
 ## http://download.cirros-cloud.net/0.3.1/cirros-0.3.1-x86_64-disk.img
 ##
-## quantum net-create ext --provider:network_type flat \
+## quantum net-create ext --shared --provider:network_type flat \
 ##      --provider:physical_network physext --router:external=True
 ##=== POSTINST ===
