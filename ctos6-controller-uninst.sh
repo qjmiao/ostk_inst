@@ -27,15 +27,15 @@ drop database nova;
 EOF
 }
 
-remove_quantum() {
-    yum remove -y --remove-leaves openstack-quantum-linuxbridge
-    rm -rf /etc/quantum
-    rm -rf /var/{log,lib,run}/quantum
+remove_neutron() {
+    yum remove -y --remove-leaves openstack-neutron-ml2 openstack-neutron-linuxbridge openstack-neutron-openvswitch
+    rm -rf /etc/neutron
+    rm -rf /var/{log,lib,run}/neutron
 
     mysql -u root --password=$MYSQL_PW <<EOF
-#drop user quantum@localhost;
-drop user quantum@'%';
-drop database quantum;
+#drop user neutron@localhost;
+drop user neutron@'%';
+drop database neutron;
 EOF
 }
 
@@ -88,8 +88,8 @@ nova)
     remove_nova
     ;;
 
-quantum)
-    remove_quantum
+neutron)
+    remove_neutron
     ;;
 
 cinder)

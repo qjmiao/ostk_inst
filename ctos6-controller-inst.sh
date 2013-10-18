@@ -16,15 +16,16 @@ alias keystone-cfg="openstack-config --set /etc/keystone/keystone.conf"
 alias glance-api-cfg="openstack-config --set /etc/glance/glance-api.conf"
 alias glance-reg-cfg="openstack-config --set /etc/glance/glance-registry.conf"
 alias cinder-cfg="openstack-config --set /etc/cinder/cinder.conf"
-alias quantum-cfg="openstack-config --set /etc/quantum/quantum.conf"
-alias Q_meta-cfg="openstack-config --set /etc/quantum/metadata_agent.ini"
-alias Q_dhcp-cfg="openstack-config --set /etc/quantum/dhcp_agent.ini"
-alias Q_l3-cfg="openstack-config --set /etc/quantum/l3_agent.ini"
-alias Q_lb-cfg="openstack-config --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini"
+alias neutron-cfg="openstack-config --set /etc/neutron/neutron.conf"
+alias N_meta-cfg="openstack-config --set /etc/neutron/metadata_agent.ini"
+alias N_dhcp-cfg="openstack-config --set /etc/neutron/dhcp_agent.ini"
+alias N_l3-cfg="openstack-config --set /etc/neutron/l3_agent.ini"
+alias N_ml2-cfg="openstack-config --set /etc/neutron/plugins/ml2/ml2_conf.ini"
+alias N_lb-cfg="openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini"
 alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 
 usage() {
-    echo "Usage: $(basename $0) [WHAT]"
+    echo "Usage: $(basename $0) <CFG_FILE> <WHAT>"
 
     exit 1
 }
@@ -70,7 +71,7 @@ service qpidd start
 install_keystone()
 {
 export OS_SERVICE_TOKEN=$(hexdump -e '"%x"' -n 5 /dev/urandom)
-export OS_SERVICE_ENDPOINT=http://$OS_CTL_IP:35357/v2.0
+export OS_SERVICE_ENDPOINT=http://$OS_CTL_IP:5000/v2.0
 
 local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 
@@ -88,20 +89,20 @@ keystone-cfg DEFAULT admin_token $OS_SERVICE_TOKEN
 keystone-cfg sql connection mysql://keystone:$pw@$OS_CTL_IP/keystone
 
 keystone-manage db_sync
-keystone-manage pki_setup
-chown -R keystone.keystone /etc/keystone/ssl
+keystone-manage pki_setup --keystone-user keystone --keystone-group keystone
+rm -f /var/log/keystone/*.log
 
 chkconfig openstack-keystone on
 service openstack-keystone start
 
-while ! netstat -ntl | grep 35357 > /dev/null; do
+while ! keystone discover &> /dev/null; do
     sleep 1
 done
 
 keystone user-create --name admin --pass $OS_ADMIN_PW
 keystone user-create --name glance --pass $OS_GLANCE_PW
 keystone user-create --name cinder --pass $OS_CINDER_PW
-keystone user-create --name quantum --pass $OS_QUANTUM_PW
+keystone user-create --name neutron --pass $OS_NEUTRON_PW
 keystone user-create --name nova --pass $OS_NOVA_PW
 
 keystone tenant-create --name admin
@@ -112,7 +113,7 @@ keystone role-create --name admin
 local admin_uid=$(keystone user-list | awk '/admin/ {print $2}')
 local glance_uid=$(keystone user-list | awk '/glance/ {print $2}')
 local cinder_uid=$(keystone user-list | awk '/cinder/ {print $2}')
-local quantum_uid=$(keystone user-list | awk '/quantum/ {print $2}')
+local neutron_uid=$(keystone user-list | awk '/neutron/ {print $2}')
 local nova_uid=$(keystone user-list | awk '/nova/ {print $2}')
 
 local admin_tid=$(keystone tenant-list | awk '/admin/ {print $2}')
@@ -123,19 +124,19 @@ local admin_rid=$(keystone role-list | awk '/admin/ {print $2}')
 keystone user-role-add --user-id $admin_uid   --role-id $admin_rid --tenant-id $admin_tid
 keystone user-role-add --user-id $glance_uid  --role-id $admin_rid --tenant-id $service_tid
 keystone user-role-add --user-id $cinder_uid  --role-id $admin_rid --tenant-id $service_tid
-keystone user-role-add --user-id $quantum_uid --role-id $admin_rid --tenant-id $service_tid
+keystone user-role-add --user-id $neutron_uid --role-id $admin_rid --tenant-id $service_tid
 keystone user-role-add --user-id $nova_uid    --role-id $admin_rid --tenant-id $service_tid
 
 keystone service-create --name keystone --type identity --description "Identity Service"
 keystone service-create --name glance   --type image    --description "Image Service"
 keystone service-create --name cinder   --type volume   --description "Volume Service"
-keystone service-create --name quantum  --type network  --description "Network Service"
+keystone service-create --name neutron  --type network  --description "Network Service"
 keystone service-create --name nova     --type compute  --description "Compute Service"
 
 local keystone_sid=$(keystone service-list | awk '/keystone/ {print $2}')
 local glance_sid=$(keystone service-list | awk '/glance/ {print $2}')
 local cinder_sid=$(keystone service-list | awk '/cinder/ {print $2}')
-local quantum_sid=$(keystone service-list | awk '/quantum/ {print $2}')
+local neutron_sid=$(keystone service-list | awk '/neutron/ {print $2}')
 local nova_sid=$(keystone service-list | awk '/nova/ {print $2}')
 
 keystone endpoint-create \
@@ -157,7 +158,7 @@ keystone endpoint-create \
     --adminurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s
 
 keystone endpoint-create \
-    --region Region1 --service-id $quantum_sid \
+    --region Region1 --service-id $neutron_sid \
     --publicurl http://$OS_CTL_IP:9696 \
     --internalurl http://$OS_CTL_IP:9696 \
     --adminurl http://$OS_CTL_IP:9696
@@ -202,6 +203,7 @@ glance-reg-cfg keystone_authtoken admin_password $OS_GLANCE_PW
 glance-reg-cfg paste_deploy flavor keystone
 
 glance-manage db_sync
+rm -f /var/log/glance/*.log
 
 chkconfig openstack-glance-api on
 service openstack-glance-api start
@@ -256,73 +258,80 @@ service openstack-cinder-scheduler start
 ##
 ## Install OpenStack Quantum
 ##
-install_quantum()
+install_neutron()
 {
 local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 
 mysql -u root --password=$MYSQL_PW <<EOF
-create database quantum;
-grant all on quantum.* to quantum@'%' identified by '$pw';
-#grant all on quantum.* to quantum@localhost identified by '$pw';
+create database neutron;
+grant all on neutron.* to neutron@'%' identified by '$pw';
+#grant all on neutron.* to neutron@localhost identified by '$pw';
 flush privileges;
 EOF
 
-yum install -y openstack-quantum-linuxbridge
-backup_cfg_file /etc/quantum/quantum.conf
-backup_cfg_file /etc/quantum/metadata_agent.ini
-backup_cfg_file /etc/quantum/dhcp_agent.ini
-backup_cfg_file /etc/quantum/l3_agent.ini
-backup_cfg_file /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini
+yum install -y openstack-neutron-ml2 openstack-neutron-linuxbridge openstack-neutron-openvswitch
+backup_cfg_file /etc/neutron/neutron.conf
+backup_cfg_file /etc/neutron/metadata_agent.ini
+backup_cfg_file /etc/neutron/dhcp_agent.ini
+backup_cfg_file /etc/neutron/l3_agent.ini
+backup_cfg_file /etc/neutron/plugins/linuxbridge/ml2_conf.ini
+backup_cfg_file /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini
 
-quantum-cfg DEFAULT core_plugin quantum.plugins.linuxbridge.lb_quantum_plugin.LinuxBridgePluginV2
-quantum-cfg DEFAULT rpc_backend quantum.openstack.common.rpc.impl_qpid
-quantum-cfg DEFAULT qpid_hostname $OS_CTL_IP
-quantum-cfg DEFAULT auth_strategy keystone
-quantum-cfg keystone_authtoken auth_host $OS_CTL_IP
-quantum-cfg keystone_authtoken admin_tenant_name service
-quantum-cfg keystone_authtoken admin_user quantum
-quantum-cfg keystone_authtoken admin_password $OS_QUANTUM_PW
+neutron-cfg DEFAULT core_plugin neutron.plugins.ml2.plugin.Ml2Plugin
+neutron-cfg DEFAULT service_plugins neutron.services.l3_router.l3_router_plugin.L3RouterPlugin
+neutron-cfg DEFAULT root_helper sudo neutron-rootwrap /etc/neutron/rootwrap.conf
+neutron-cfg DEFAULT rpc_backend neutron.openstack.common.rpc.impl_qpid
+neutron-cfg DEFAULT qpid_hostname $OS_CTL_IP
+neutron-cfg DEFAULT auth_strategy keystone
+neutron-cfg keystone_authtoken auth_host $OS_CTL_IP
+neutron-cfg keystone_authtoken admin_tenant_name service
+neutron-cfg keystone_authtoken admin_user neutron
+neutron-cfg keystone_authtoken admin_password $OS_NEUTRON_PW
+neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
 
-Q_meta-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
-Q_meta-cfg DEFAULT auth_region Region1
-Q_meta-cfg DEFAULT admin_tenant_name service
-Q_meta-cfg DEFAULT admin_user quantum
-Q_meta-cfg DEFAULT admin_password $OS_QUANTUM_PW
-Q_meta-cfg DEFAULT metadata_proxy_shared_secret 1234567890
+N_meta-cfg DEFAULT auth_url http://$OS_CTL_IP:5000/v2.0
+N_meta-cfg DEFAULT auth_region Region1
+N_meta-cfg DEFAULT admin_tenant_name service
+N_meta-cfg DEFAULT admin_user neutron
+N_meta-cfg DEFAULT admin_password $OS_NEUTRON_PW
+N_meta-cfg DEFAULT metadata_proxy_shared_secret 1234567890
 
-Q_dhcp-cfg DEFAULT interface_driver quantum.agent.linux.interface.BridgeInterfaceDriver
-Q_dhcp-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
-Q_dhcp-cfg DEFAULT admin_tenant_name service
-Q_dhcp-cfg DEFAULT admin_user quantum
-Q_dhcp-cfg DEFAULT admin_password $OS_QUANTUM_PW
+N_dhcp-cfg DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
+N_dhcp-cfg DEFAULT auth_url http://$OS_CTL_IP:5000/v2.0
+N_dhcp-cfg DEFAULT admin_tenant_name service
+N_dhcp-cfg DEFAULT admin_user neutron
+N_dhcp-cfg DEFAULT admin_password $OS_NEUTRON_PW
 
-Q_l3-cfg DEFAULT interface_driver quantum.agent.linux.interface.BridgeInterfaceDriver
-Q_l3-cfg DEFAULT external_network_bridge ""
-Q_l3-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
-Q_l3-cfg DEFAULT admin_tenant_name service
-Q_l3-cfg DEFAULT admin_user quantum
-Q_l3-cfg DEFAULT admin_password $OS_QUANTUM_PW
+N_l3-cfg DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
+N_l3-cfg DEFAULT external_network_bridge ""
+N_l3-cfg DEFAULT auth_url http://$OS_CTL_IP:5000/v2.0
+N_l3-cfg DEFAULT admin_tenant_name service
+N_l3-cfg DEFAULT admin_user neutron
+N_l3-cfg DEFAULT admin_password $OS_NEUTRON_PW
 
-if [ ! -L /etc/quantum/plugin.ini ]; then
-    ln -s plugins/linuxbridge/linuxbridge_conf.ini /etc/quantum/plugin.ini
+N_ml2-cfg ml2 type_drivers vlan
+N_ml2-cfg ml2 tenant_network_types vlan
+N_ml2-cfg ml2 mechanism_drivers linuxbridge
+N_ml2-cfg ml2_type_vlan network_vlan_ranges physnet:$OS_NET_VLANS
+N_ml2-cfg database sql_connection mysql://neutron:$pw@$OS_CTL_IP/neutron
+
+N_lb-cfg linux_bridge physical_interface_mappings physnet:$OS_DATA_IF
+
+if [ ! -L /etc/neutron/plugin.ini ]; then
+    ln -s plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini
 fi
 
-Q_lb-cfg VLANS tenant_network_type vlan
-Q_lb-cfg VLANS network_vlan_ranges physext,physint:$OS_NET_VLANS
-Q_lb-cfg DATABASE sql_connection mysql://quantum:$pw@$OS_CTL_IP/quantum
-Q_lb-cfg LINUX_BRIDGE physical_interface_mappings physext:$OS_EXT_IF,physint:$OS_DATA_IF
+chkconfig neutron-server on
+chkconfig neutron-metadata-agent on
+chkconfig neutron-dhcp-agent on
+chkconfig neutron-l3-agent on
+chkconfig neutron-linuxbridge-agent on
 
-chkconfig quantum-server on
-chkconfig quantum-metadata-agent on
-chkconfig quantum-dhcp-agent on
-chkconfig quantum-l3-agent on
-chkconfig quantum-linuxbridge-agent on
-
-service quantum-server start
-service quantum-metadata-agent start
-service quantum-dhcp-agent start
-service quantum-l3-agent start
-service quantum-linuxbridge-agent start
+service neutron-server start
+service neutron-metadata-agent start
+service neutron-dhcp-agent start
+service neutron-l3-agent start
+service neutron-linuxbridge-agent start
 }
 
 ##
@@ -352,18 +361,18 @@ nova-cfg DEFAULT rpc_backend nova.openstack.common.rpc.impl_qpid
 nova-cfg DEFAULT qpid_hostname $OS_CTL_IP
 nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_CTL_IP/nova
 nova-cfg DEFAULT metadata_host $OS_CTL_IP
-nova-cfg DEFAULT service_quantum_metadata_proxy true
-nova-cfg DEFAULT quantum_metadata_proxy_shared_secret 1234567890
+nova-cfg DEFAULT service_neutron_metadata_proxy true
+nova-cfg DEFAULT neutron_metadata_proxy_shared_secret 1234567890
 
-nova-cfg DEFAULT network_api_class nova.network.quantumv2.api.API
-nova-cfg DEFAULT security_group_api quantum
+nova-cfg DEFAULT network_api_class nova.network.neutronv2.api.API
+nova-cfg DEFAULT security_group_api neutron
 nova-cfg DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
-nova-cfg DEFAULT quantum_url http://$OS_CTL_IP:9696
-nova-cfg DEFAULT quantum_auth_strategy keystone
-nova-cfg DEFAULT quantum_admin_auth_url http://$OS_CTL_IP:35357/v2.0
-nova-cfg DEFAULT quantum_admin_tenant_name service
-nova-cfg DEFAULT quantum_admin_username quantum
-nova-cfg DEFAULT quantum_admin_password $OS_QUANTUM_PW
+nova-cfg DEFAULT neutron_url http://$OS_CTL_IP:9696
+nova-cfg DEFAULT neutron_auth_strategy keystone
+nova-cfg DEFAULT neutron_admin_auth_url http://$OS_CTL_IP:5000/v2.0
+nova-cfg DEFAULT neutron_admin_tenant_name service
+nova-cfg DEFAULT neutron_admin_username neutron
+nova-cfg DEFAULT neutron_admin_password $OS_NEUTRON_PW
 
 nova-cfg DEFAULT auth_strategy keystone
 nova-cfg keystone_authtoken auth_host $OS_CTL_IP
@@ -399,7 +408,7 @@ fi
 
 nova-cfg DEFAULT glance_host $OS_CTL_IP
 
-#nova-cfg DEFAULT vncserver_listen 0.0.0.0
+nova-cfg DEFAULT vncserver_listen $OS_CTL_IP
 nova-cfg DEFAULT vncserver_proxyclient_address $OS_CTL_IP
 nova-cfg DEFAULT novncproxy_base_url http://$OS_CTL_IP:6080/vnc_auto.html
 
@@ -426,7 +435,6 @@ source $1
 
 OS_CTL_IF=${OS_CTL_IF:-eth0}
 OS_DATA_IF=${OS_DATA_IF:-eth1}
-OS_EXT_IF=${OS_EXT_IF:-eth2}
 OS_ISCSI_IF=${OS_ISCSI_IF:-eth3}
 OS_ISCSI_VG=${OS_ISCSI_VG:-vg_$(hostname -s)}
 OS_NET_VLANS=${OS_NET_VLANS:-100:199}
@@ -435,7 +443,7 @@ MYSQL_PW=${MYSQL_PW:-admin}
 OS_ADMIN_PW=${OS_ADMIN_PW:-admin}
 OS_GLANCE_PW=${OS_GLANCE_PW:-glance}
 OS_CINDER_PW=${OS_CINDER_PW:-cinder}
-OS_QUANTUM_PW=${OS_QUANTUM_PW:-quantum}
+OS_NEUTRON_PW=${OS_NEUTRON_PW:-neutron}
 OS_NOVA_PW=${OS_NOVA_PW:-nova}
 
 OS_CTL_IP=$(ip addr show dev $OS_CTL_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
@@ -466,8 +474,8 @@ cinder)
     install_cinder
     ;;
 
-quantum)
-    install_quantum
+neutron)
+    install_neutron
     ;;
 
 nova)
@@ -490,6 +498,6 @@ esac
 ##+++ POSTINST +++
 ## http://download.cirros-cloud.net/0.3.1/cirros-0.3.1-x86_64-disk.img
 ##
-## quantum net-create ext --shared --provider:network_type flat \
+## neutron net-create ext --shared --provider:network_type flat \
 ##      --provider:physical_network physext --router:external=True
 ##=== POSTINST ===
