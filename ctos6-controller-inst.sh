@@ -399,7 +399,7 @@ fi
 
 nova-cfg DEFAULT glance_host $OS_CTL_IP
 
-#nova-cfg DEFAULT vncserver_listen 0.0.0.0
+nova-cfg DEFAULT vncserver_listen $OS_CTL_IP
 nova-cfg DEFAULT vncserver_proxyclient_address $OS_CTL_IP
 nova-cfg DEFAULT novncproxy_base_url http://$OS_CTL_IP:6080/vnc_auto.html
 
