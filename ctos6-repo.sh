@@ -7,7 +7,7 @@ if !(rpm -q epel-release); then
 fi
 
 if !(rpm -q rdo-release); then
-    rpm -i http://repos.fedorapeople.org/repos/openstack/openstack-grizzly/rdo-release-grizzly-3.noarch.rpm
+    rpm -i http://repos.fedorapeople.org/repos/openstack/openstack-havana/rdo-release-havana-6.noarch.rpm
 fi
 
 yum update -y
