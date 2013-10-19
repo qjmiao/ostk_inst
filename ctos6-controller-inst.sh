@@ -71,7 +71,7 @@ service qpidd start
 install_keystone()
 {
 export OS_SERVICE_TOKEN=$(hexdump -e '"%x"' -n 5 /dev/urandom)
-export OS_SERVICE_ENDPOINT=http://$OS_CTL_IP:5000/v2.0
+export OS_SERVICE_ENDPOINT=http://$OS_CTL_IP:35357/v2.0
 
 local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 
@@ -274,12 +274,11 @@ backup_cfg_file /etc/neutron/neutron.conf
 backup_cfg_file /etc/neutron/metadata_agent.ini
 backup_cfg_file /etc/neutron/dhcp_agent.ini
 backup_cfg_file /etc/neutron/l3_agent.ini
-backup_cfg_file /etc/neutron/plugins/linuxbridge/ml2_conf.ini
+backup_cfg_file /etc/neutron/plugins/ml2/ml2_conf.ini
 backup_cfg_file /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini
 
 neutron-cfg DEFAULT core_plugin neutron.plugins.ml2.plugin.Ml2Plugin
 neutron-cfg DEFAULT service_plugins neutron.services.l3_router.l3_router_plugin.L3RouterPlugin
-neutron-cfg DEFAULT root_helper sudo neutron-rootwrap /etc/neutron/rootwrap.conf
 neutron-cfg DEFAULT rpc_backend neutron.openstack.common.rpc.impl_qpid
 neutron-cfg DEFAULT qpid_hostname $OS_CTL_IP
 neutron-cfg DEFAULT auth_strategy keystone
@@ -287,6 +286,7 @@ neutron-cfg keystone_authtoken auth_host $OS_CTL_IP
 neutron-cfg keystone_authtoken admin_tenant_name service
 neutron-cfg keystone_authtoken admin_user neutron
 neutron-cfg keystone_authtoken admin_password $OS_NEUTRON_PW
+neutron-cfg agent root_helper "sudo neutron-rootwrap /etc/neutron/rootwrap.conf"
 neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
 
 N_meta-cfg DEFAULT auth_url http://$OS_CTL_IP:5000/v2.0
