@@ -435,8 +435,8 @@ source $1
 
 OS_CTL_IF=${OS_CTL_IF:-eth0}
 OS_DATA_IF=${OS_DATA_IF:-eth1}
-OS_ISCSI_IF=${OS_ISCSI_IF:-eth3}
-OS_ISCSI_VG=${OS_ISCSI_VG:-vg_$(hostname -s)}
+OS_ISCSI_IF=${OS_ISCSI_IF:-eth0}
+OS_ISCSI_VG=${OS_ISCSI_VG:-cinder-volumes}
 OS_NET_VLANS=${OS_NET_VLANS:-100:199}
 
 MYSQL_PW=${MYSQL_PW:-admin}
