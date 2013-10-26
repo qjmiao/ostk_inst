@@ -93,7 +93,7 @@ rm -f /var/log/keystone/*.log
 chkconfig openstack-keystone on
 service openstack-keystone start
 
-while ! keystone discover &> /dev/null; do
+while !(keystone discover &> /dev/null); do
     sleep 1
 done
 
