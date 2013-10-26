@@ -289,7 +289,7 @@ neutron-cfg keystone_authtoken admin_password $OS_NEUTRON_PW
 neutron-cfg agent root_helper "sudo neutron-rootwrap /etc/neutron/rootwrap.conf"
 neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
 
-N_meta-cfg DEFAULT auth_url http://$OS_CTL_IP:5000/v2.0
+N_meta-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
 N_meta-cfg DEFAULT auth_region Region1
 N_meta-cfg DEFAULT admin_tenant_name service
 N_meta-cfg DEFAULT admin_user neutron
@@ -297,14 +297,14 @@ N_meta-cfg DEFAULT admin_password $OS_NEUTRON_PW
 N_meta-cfg DEFAULT metadata_proxy_shared_secret 1234567890
 
 N_dhcp-cfg DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
-N_dhcp-cfg DEFAULT auth_url http://$OS_CTL_IP:5000/v2.0
+N_dhcp-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
 N_dhcp-cfg DEFAULT admin_tenant_name service
 N_dhcp-cfg DEFAULT admin_user neutron
 N_dhcp-cfg DEFAULT admin_password $OS_NEUTRON_PW
 
 N_l3-cfg DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
 N_l3-cfg DEFAULT external_network_bridge ""
-N_l3-cfg DEFAULT auth_url http://$OS_CTL_IP:5000/v2.0
+N_l3-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
 N_l3-cfg DEFAULT admin_tenant_name service
 N_l3-cfg DEFAULT admin_user neutron
 N_l3-cfg DEFAULT admin_password $OS_NEUTRON_PW
@@ -369,7 +369,7 @@ nova-cfg DEFAULT security_group_api neutron
 nova-cfg DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
 nova-cfg DEFAULT neutron_url http://$OS_CTL_IP:9696
 nova-cfg DEFAULT neutron_auth_strategy keystone
-nova-cfg DEFAULT neutron_admin_auth_url http://$OS_CTL_IP:5000/v2.0
+nova-cfg DEFAULT neutron_admin_auth_url http://$OS_CTL_IP:35357/v2.0
 nova-cfg DEFAULT neutron_admin_tenant_name service
 nova-cfg DEFAULT neutron_admin_username neutron
 nova-cfg DEFAULT neutron_admin_password $OS_NEUTRON_PW
