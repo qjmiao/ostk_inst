@@ -70,7 +70,7 @@ service qpidd start
 install_keystone()
 {
 export OS_SERVICE_TOKEN=$(hexdump -e '"%x"' -n 5 /dev/urandom)
-export OS_SERVICE_ENDPOINT=http://$OS_CTL_IP:35357/v2.0
+export OS_SERVICE_ENDPOINT=http://$OS_MY_IP:35357/v2.0
 
 local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 
@@ -84,7 +84,7 @@ yum install -y openstack-keystone
 backup_cfg_file /etc/keystone/keystone.conf
 
 keystone-cfg DEFAULT admin_token $OS_SERVICE_TOKEN
-keystone-cfg sql connection mysql://keystone:$pw@$OS_CTL_IP/keystone
+keystone-cfg sql connection mysql://keystone:$pw@$OS_MY_IP/keystone
 
 keystone-manage db_sync
 keystone-manage pki_setup --keystone-user keystone --keystone-group keystone
@@ -139,33 +139,33 @@ local nova_sid=$(keystone service-list | awk '/nova/ {print $2}')
 
 keystone endpoint-create \
     --region Region1 --service-id $keystone_sid \
-    --publicurl http://$OS_CTL_IP:5000/v2.0 \
-    --internalurl http://$OS_CTL_IP:5000/v2.0 \
-    --adminurl http://$OS_CTL_IP:35357/v2.0
+    --publicurl http://$OS_MY_IP:5000/v2.0 \
+    --internalurl http://$OS_MY_IP:5000/v2.0 \
+    --adminurl http://$OS_MY_IP:35357/v2.0
 
 keystone endpoint-create \
     --region Region1 --service-id $glance_sid \
-    --publicurl http://$OS_CTL_IP:9292 \
-    --internalurl http://$OS_CTL_IP:9292 \
-    --adminurl http://$OS_CTL_IP:9292
+    --publicurl http://$OS_MY_IP:9292 \
+    --internalurl http://$OS_MY_IP:9292 \
+    --adminurl http://$OS_MY_IP:9292
 
 keystone endpoint-create \
     --region Region1 --service-id $cinder_sid \
-    --publicurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s \
-    --internalurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s \
-    --adminurl http://$OS_CTL_IP:8776/v1/$\(tenant_id\)s
+    --publicurl http://$OS_MY_IP:8776/v1/$\(tenant_id\)s \
+    --internalurl http://$OS_MY_IP:8776/v1/$\(tenant_id\)s \
+    --adminurl http://$OS_MY_IP:8776/v1/$\(tenant_id\)s
 
 keystone endpoint-create \
     --region Region1 --service-id $neutron_sid \
-    --publicurl http://$OS_CTL_IP:9696 \
-    --internalurl http://$OS_CTL_IP:9696 \
-    --adminurl http://$OS_CTL_IP:9696
+    --publicurl http://$OS_MY_IP:9696 \
+    --internalurl http://$OS_MY_IP:9696 \
+    --adminurl http://$OS_MY_IP:9696
 
 keystone endpoint-create \
     --region Region1 --service-id $nova_sid \
-    --publicurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s \
-    --internalurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s \
-    --adminurl http://$OS_CTL_IP:8774/v2/$\(tenant_id\)s
+    --publicurl http://$OS_MY_IP:8774/v2/$\(tenant_id\)s \
+    --internalurl http://$OS_MY_IP:8774/v2/$\(tenant_id\)s \
+    --adminurl http://$OS_MY_IP:8774/v2/$\(tenant_id\)s
 }
 
 ##
@@ -185,15 +185,15 @@ yum install -y openstack-glance
 backup_cfg_file /etc/glance/glance-api.conf
 backup_cfg_file /etc/glance/glance-registry.conf
 
-glance-api-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_CTL_IP/glance
-glance-api-cfg keystone_authtoken auth_host $OS_CTL_IP
+glance-api-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
+glance-api-cfg keystone_authtoken auth_host $OS_MY_IP
 glance-api-cfg keystone_authtoken admin_tenant_name service
 glance-api-cfg keystone_authtoken admin_user glance
 glance-api-cfg keystone_authtoken admin_password $OS_GLANCE_PW
 glance-api-cfg paste_deploy flavor keystone
 
-glance-reg-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_CTL_IP/glance
-glance-reg-cfg keystone_authtoken auth_host $OS_CTL_IP
+glance-reg-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
+glance-reg-cfg keystone_authtoken auth_host $OS_MY_IP
 glance-reg-cfg keystone_authtoken admin_tenant_name service
 glance-reg-cfg keystone_authtoken admin_user glance
 glance-reg-cfg keystone_authtoken admin_password $OS_GLANCE_PW
@@ -226,12 +226,12 @@ yum install -y openstack-cinder
 backup_cfg_file /etc/cinder/cinder.conf
 
 cinder-cfg DEFAULT rpc_backend cinder.openstack.common.rpc.impl_qpid
-cinder-cfg DEFAULT qpid_hostname $OS_CTL_IP
+cinder-cfg DEFAULT qpid_hostname $OS_MY_IP
 cinder-cfg DEFAULT iscsi_ip_address $OS_ISCSI_IP
 cinder-cfg DEFAULT volume_group $OS_ISCSI_VG
-cinder-cfg DEFAULT sql_connection mysql://cinder:$pw@$OS_CTL_IP/cinder
+cinder-cfg DEFAULT sql_connection mysql://cinder:$pw@$OS_MY_IP/cinder
 cinder-cfg DEFAULT auth_strategy keystone
-cinder-cfg keystone_authtoken auth_host $OS_CTL_IP
+cinder-cfg keystone_authtoken auth_host $OS_MY_IP
 cinder-cfg keystone_authtoken admin_tenant_name service
 cinder-cfg keystone_authtoken admin_user cinder
 cinder-cfg keystone_authtoken admin_password $OS_CINDER_PW
@@ -275,16 +275,16 @@ backup_cfg_file /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini
 neutron-cfg DEFAULT core_plugin neutron.plugins.ml2.plugin.Ml2Plugin
 neutron-cfg DEFAULT service_plugins neutron.services.l3_router.l3_router_plugin.L3RouterPlugin
 neutron-cfg DEFAULT rpc_backend neutron.openstack.common.rpc.impl_qpid
-neutron-cfg DEFAULT qpid_hostname $OS_CTL_IP
+neutron-cfg DEFAULT qpid_hostname $OS_MY_IP
 neutron-cfg DEFAULT auth_strategy keystone
-neutron-cfg keystone_authtoken auth_host $OS_CTL_IP
+neutron-cfg keystone_authtoken auth_host $OS_MY_IP
 neutron-cfg keystone_authtoken admin_tenant_name service
 neutron-cfg keystone_authtoken admin_user neutron
 neutron-cfg keystone_authtoken admin_password $OS_NEUTRON_PW
 neutron-cfg agent root_helper "sudo neutron-rootwrap /etc/neutron/rootwrap.conf"
 neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
 
-N_meta-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
+N_meta-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 N_meta-cfg DEFAULT auth_region Region1
 N_meta-cfg DEFAULT admin_tenant_name service
 N_meta-cfg DEFAULT admin_user neutron
@@ -292,14 +292,14 @@ N_meta-cfg DEFAULT admin_password $OS_NEUTRON_PW
 N_meta-cfg DEFAULT metadata_proxy_shared_secret 1234567890
 
 N_dhcp-cfg DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
-N_dhcp-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
+N_dhcp-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 N_dhcp-cfg DEFAULT admin_tenant_name service
 N_dhcp-cfg DEFAULT admin_user neutron
 N_dhcp-cfg DEFAULT admin_password $OS_NEUTRON_PW
 
 N_l3-cfg DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
 N_l3-cfg DEFAULT external_network_bridge ""
-N_l3-cfg DEFAULT auth_url http://$OS_CTL_IP:35357/v2.0
+N_l3-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 N_l3-cfg DEFAULT admin_tenant_name service
 N_l3-cfg DEFAULT admin_user neutron
 N_l3-cfg DEFAULT admin_password $OS_NEUTRON_PW
@@ -308,7 +308,7 @@ N_ml2-cfg ml2 type_drivers vlan
 N_ml2-cfg ml2 tenant_network_types vlan
 N_ml2-cfg ml2 mechanism_drivers linuxbridge
 N_ml2-cfg ml2_type_vlan network_vlan_ranges physnet:$OS_NET_VLANS
-N_ml2-cfg database sql_connection mysql://neutron:$pw@$OS_CTL_IP/neutron
+N_ml2-cfg database sql_connection mysql://neutron:$pw@$OS_MY_IP/neutron
 
 N_lb-cfg linux_bridge physical_interface_mappings physnet:$OS_DATA_IF
 
@@ -352,24 +352,24 @@ virsh net-destroy default
 virsh net-undefine default
 
 nova-cfg DEFAULT rpc_backend nova.openstack.common.rpc.impl_qpid
-nova-cfg DEFAULT qpid_hostname $OS_CTL_IP
-nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_CTL_IP/nova
-nova-cfg DEFAULT metadata_host $OS_CTL_IP
+nova-cfg DEFAULT qpid_hostname $OS_MY_IP
+nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_MY_IP/nova
+nova-cfg DEFAULT metadata_host $OS_MY_IP
 nova-cfg DEFAULT service_neutron_metadata_proxy true
 nova-cfg DEFAULT neutron_metadata_proxy_shared_secret 1234567890
 
 nova-cfg DEFAULT network_api_class nova.network.neutronv2.api.API
 nova-cfg DEFAULT security_group_api neutron
 nova-cfg DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
-nova-cfg DEFAULT neutron_url http://$OS_CTL_IP:9696
+nova-cfg DEFAULT neutron_url http://$OS_MY_IP:9696
 nova-cfg DEFAULT neutron_auth_strategy keystone
-nova-cfg DEFAULT neutron_admin_auth_url http://$OS_CTL_IP:35357/v2.0
+nova-cfg DEFAULT neutron_admin_auth_url http://$OS_MY_IP:35357/v2.0
 nova-cfg DEFAULT neutron_admin_tenant_name service
 nova-cfg DEFAULT neutron_admin_username neutron
 nova-cfg DEFAULT neutron_admin_password $OS_NEUTRON_PW
 
 nova-cfg DEFAULT auth_strategy keystone
-nova-cfg keystone_authtoken auth_host $OS_CTL_IP
+nova-cfg keystone_authtoken auth_host $OS_MY_IP
 nova-cfg keystone_authtoken admin_tenant_name service
 nova-cfg keystone_authtoken admin_user nova
 nova-cfg keystone_authtoken admin_password $OS_NOVA_PW
@@ -400,11 +400,11 @@ if [ ! -c /dev/kvm ]; then
     nova-cfg DEFAULT libvirt_type qemu
 fi
 
-nova-cfg DEFAULT glance_host $OS_CTL_IP
+nova-cfg DEFAULT glance_host $OS_MY_IP
 
-nova-cfg DEFAULT vncserver_listen $OS_CTL_IP
-nova-cfg DEFAULT vncserver_proxyclient_address $OS_CTL_IP
-nova-cfg DEFAULT novncproxy_base_url http://$OS_CTL_IP:6080/vnc_auto.html
+nova-cfg DEFAULT vncserver_listen $OS_MY_IP
+nova-cfg DEFAULT vncserver_proxyclient_address $OS_MY_IP
+nova-cfg DEFAULT novncproxy_base_url http://$OS_MY_IP:6080/vnc_auto.html
 
 chkconfig openstack-nova-compute on
 service openstack-nova-compute start
@@ -427,7 +427,7 @@ fi
 
 source $1
 
-OS_CTL_IF=${OS_CTL_IF:-eth0}
+OS_ADMIN_IF=${OS_ADMIN_IF:-eth0}
 OS_DATA_IF=${OS_DATA_IF:-eth1}
 OS_ISCSI_IF=${OS_ISCSI_IF:-eth0}
 OS_ISCSI_VG=${OS_ISCSI_VG:-cinder-volumes}
@@ -440,7 +440,7 @@ OS_CINDER_PW=${OS_CINDER_PW:-cinder}
 OS_NEUTRON_PW=${OS_NEUTRON_PW:-neutron}
 OS_NOVA_PW=${OS_NOVA_PW:-nova}
 
-OS_CTL_IP=$(ip addr show dev $OS_CTL_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
+OS_MY_IP=$(ip addr show dev $OS_ADMIN_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
 OS_ISCSI_IP=$(ip addr show dev $OS_ISCSI_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
 
 case $2 in
