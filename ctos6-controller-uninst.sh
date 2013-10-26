@@ -21,7 +21,6 @@ remove_nova() {
     rm -rf /var/{log,lib,run}/nova
 
     mysql -u root --password=$MYSQL_PW <<EOF
-#drop user nova@localhost;
 drop user nova@'%';
 drop database nova;
 EOF
@@ -33,7 +32,6 @@ remove_neutron() {
     rm -rf /var/{log,lib,run}/neutron
 
     mysql -u root --password=$MYSQL_PW <<EOF
-#drop user neutron@localhost;
 drop user neutron@'%';
 drop database neutron;
 EOF
@@ -45,7 +43,6 @@ remove_cinder() {
     rm -rf /var/{log,lib,run}/cinder
 
     mysql -u root --password=$MYSQL_PW <<EOF
-#drop user cinder@localhost;
 drop user cinder@'%';
 drop database cinder;
 EOF
@@ -57,7 +54,6 @@ remove_glance() {
     rm -rf /var/{log,lib,run}/glance
 
     mysql -u root --password=$MYSQL_PW <<EOF
-#drop user glance@localhost;
 drop user glance@'%';
 drop database glance;
 EOF
@@ -69,7 +65,6 @@ remove_keystone() {
     rm -rf /var/{log,lib,run}/keystone
 
     mysql -u root --password=$MYSQL_PW <<EOF
-#drop user keystone@localhost;
 drop user keystone@'%';
 drop database keystone;
 EOF
