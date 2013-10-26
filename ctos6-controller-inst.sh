@@ -25,9 +25,8 @@ alias N_lb-cfg="openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbri
 alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 
 usage() {
-    echo "Usage: $(basename $0) <CFG_FILE> <WHAT>"
-
-    exit 1
+echo "Usage: $(basename $0) <CFG_FILE> <WHAT>"
+exit 1
 }
 
 backup_cfg_file() {
@@ -78,7 +77,6 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database keystone;
 grant all on keystone.* to keystone@'%' identified by '$pw';
-#grant all on keystone.* to keystone@localhost identified by '$pw';
 flush privileges;
 EOF
 
@@ -180,7 +178,6 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database glance;
 grant all on glance.* to glance@'%' identified by '$pw';
-#grant all on glance.* to glance@localhost identified by '$pw';
 flush privileges;
 EOF
 
@@ -222,7 +219,6 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database cinder;
 grant all on cinder.* to cinder@'%' identified by '$pw';
-#grant all on cinder.* to cinder@localhost identified by '$pw';
 flush privileges;
 EOF
 
@@ -265,7 +261,6 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database neutron;
 grant all on neutron.* to neutron@'%' identified by '$pw';
-#grant all on neutron.* to neutron@localhost identified by '$pw';
 flush privileges;
 EOF
 
@@ -344,7 +339,6 @@ local pw=$(hexdump -e '"%x"' -n 5 /dev/urandom)
 mysql -u root --password=$MYSQL_PW <<EOF
 create database nova;
 grant all on nova.* to nova@'%' identified by '$pw';
-#grant all on nova.* to nova@localhost identified by '$pw';
 flush privileges;
 EOF
 
