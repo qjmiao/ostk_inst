@@ -1,4 +1,6 @@
-OS_CTL_IF=eth0
+OS_CTL_IP=192.168.1.1
+
+OS_ADMIN_IF=eth0
 OS_DATA_IF=eth1
 OS_ISCSI_IF=eth0
 OS_ISCSI_VG=cinder-volumes
