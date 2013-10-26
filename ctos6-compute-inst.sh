@@ -13,9 +13,8 @@ set -u
 ##=== PREINST ===
 
 usage() {
-    echo "Usage: $(basename $0) <CFG_FILE>"
-
-    exit 1
+echo "Usage: $(basename $0) <CFG_FILE>"
+exit 1
 }
 
 if [ $# != 1 ]; then
@@ -24,13 +23,14 @@ fi
 
 source $1
 
-OS_CTL_IP=${OS_CTL_IP:-9.111.72.231}
-OS_ADMIN_IF=${OS_ADMIN_IF:-eth4}
+OS_CTL_IP=${OS_CTL_IP:-192.168.1.1}
+OS_ADMIN_IF=${OS_ADMIN_IF:-eth0}
 OS_DATA_IF=${OS_DATA_IF:-eth1}
-OS_ADMIN_IP=$(ip addr show dev $OS_ADMIN_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
 
 OS_NEUTRON_PW=${OS_NEUTRON_PW:-neutron}
 OS_NOVA_PW=${OS_NOVA_PW:-nova}
+
+OS_MY_IP=$(ip addr show dev $OS_ADMIN_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
 
 alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 alias neutron-cfg="openstack-config --set /etc/neutron/neutron.conf"
@@ -73,8 +73,8 @@ nova-cfg DEFAULT neutron_admin_tenant_name service
 nova-cfg DEFAULT neutron_admin_username neutron
 nova-cfg DEFAULT neutron_admin_password $OS_NEUTRON_PW
 
-nova-cfg DEFAULT vncserver_listen $OS_ADMIN_IP
-nova-cfg DEFAULT vncserver_proxyclient_address $OS_ADMIN_IP
+nova-cfg DEFAULT vncserver_listen $OS_MY_IP
+nova-cfg DEFAULT vncserver_proxyclient_address $OS_MY_IP
 nova-cfg DEFAULT novncproxy_base_url http://$OS_CTL_IP:6080/vnc_auto.html
 
 nova-cfg DEFAULT auth_strategy keystone
