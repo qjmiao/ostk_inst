@@ -95,6 +95,8 @@ backup_cfg_file /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini
 
 neutron-cfg DEFAULT rpc_backend neutron.openstack.common.rpc.impl_qpid
 neutron-cfg DEFAULT qpid_hostname $OS_CTL_IP
+neutron-cfg agent root_helper "sudo neutron-rootwrap /etc/neutron/rootwrap.conf"
+neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
 
 N_lb-cfg linux_bridge physical_interface_mappings physnet:$OS_DATA_IF
 
