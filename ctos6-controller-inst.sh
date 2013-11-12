@@ -348,9 +348,6 @@ backup_cfg_file /etc/nova/nova.conf
 service messagebus start
 service libvirtd start
 
-virsh net-destroy default
-virsh net-undefine default
-
 nova-cfg DEFAULT rpc_backend nova.openstack.common.rpc.impl_qpid
 nova-cfg DEFAULT qpid_hostname $OS_MY_IP
 nova-cfg DEFAULT sql_connection mysql://nova:$pw@$OS_MY_IP/nova

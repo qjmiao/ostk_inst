@@ -53,9 +53,6 @@ backup_cfg_file /etc/nova/nova.conf
 service messagebus start
 service libvirtd start
 
-virsh net-destroy default
-virsh net-undefine default
-
 nova-cfg DEFAULT qpid_hostname $OS_CTL_IP
 nova-cfg DEFAULT glance_host $OS_CTL_IP
 
