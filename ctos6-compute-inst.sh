@@ -34,7 +34,7 @@ OS_MY_IP=$(ip addr show dev $OS_ADMIN_IF | awk '/inet / {split($2, a, "/"); prin
 
 alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 alias neutron-cfg="openstack-config --set /etc/neutron/neutron.conf"
-alias N_lb-cfg="openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini"
+alias N_ovs-cfg="openstack-config --set /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
 
 backup_cfg_file() {
 if [ ! -f $1.orig ]; then
@@ -64,7 +64,6 @@ nova-cfg DEFAULT network_api_class nova.network.neutronv2.api.API
 nova-cfg DEFAULT security_group_api neutron
 nova-cfg DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
 nova-cfg DEFAULT neutron_url http://$OS_CTL_IP:9696
-nova-cfg DEFAULT neutron_auth_strategy keystone
 nova-cfg DEFAULT neutron_admin_auth_url http://$OS_CTL_IP:35357/v2.0
 nova-cfg DEFAULT neutron_admin_tenant_name service
 nova-cfg DEFAULT neutron_admin_username neutron
@@ -84,18 +83,18 @@ chkconfig openstack-nova-compute on
 service openstack-nova-compute start
 
 ##
-## neutron-linuxbridge-agent
+## neutron-openvswitch-agent
 ##
 yum install -y openstack-neutron-linuxbridge openstack-neutron-openvswitch
 backup_cfg_file /etc/neutron/neutron.conf
-backup_cfg_file /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini
+backup_cfg_file /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
 
 neutron-cfg DEFAULT rpc_backend neutron.openstack.common.rpc.impl_qpid
 neutron-cfg DEFAULT qpid_hostname $OS_CTL_IP
 neutron-cfg agent root_helper "sudo neutron-rootwrap /etc/neutron/rootwrap.conf"
-neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
-N_lb-cfg linux_bridge physical_interface_mappings physnet:$OS_DATA_IF
+N_ovs-cfg ovs bridge_mappings physnet:br-$OS_DATA_IF
 
-chkconfig neutron-linuxbridge-agent on
-service neutron-linuxbridge-agent start
+chkconfig neutron-openvswitch-agent on
+service neutron-openvswitch-agent start
