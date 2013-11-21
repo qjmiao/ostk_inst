@@ -275,6 +275,14 @@ backup_cfg_file /etc/neutron/l3_agent.ini
 backup_cfg_file /etc/neutron/plugins/ml2/ml2_conf.ini
 backup_cfg_file /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
 
+chkconfig openvswitch on
+service openvswitch start
+
+ovs-vsctl add-br br-int
+ovs-vsctl add-br br-ex
+ovs-vsctl add-br br-$OS_DATA_IF
+ovs-vsctl add-port br-$OS_DATA_IF $OS_DATA_IF
+
 neutron-cfg DEFAULT core_plugin neutron.plugins.ml2.plugin.Ml2Plugin
 neutron-cfg DEFAULT service_plugins neutron.services.l3_router.l3_router_plugin.L3RouterPlugin
 neutron-cfg DEFAULT rpc_backend neutron.openstack.common.rpc.impl_qpid
@@ -319,14 +327,12 @@ if [ ! -L /etc/neutron/plugin.ini ]; then
     ln -s plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini
 fi
 
-chkconfig openvswitch on
 chkconfig neutron-server on
 chkconfig neutron-metadata-agent on
 chkconfig neutron-dhcp-agent on
 chkconfig neutron-l3-agent on
 chkconfig neutron-openvswitch-agent on
 
-service openvswitch start
 service neutron-server start
 service neutron-metadata-agent start
 service neutron-dhcp-agent start
@@ -352,6 +358,9 @@ backup_cfg_file /etc/nova/nova.conf
 
 service messagebus start
 service libvirtd start
+
+virsh net-destroy default
+virsh net-undefine default
 
 nova-cfg DEFAULT rpc_backend nova.openstack.common.rpc.impl_qpid
 nova-cfg DEFAULT qpid_hostname $OS_MY_IP
