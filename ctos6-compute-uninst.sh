@@ -11,13 +11,17 @@ EOF
 }
 
 remove_nova() {
-    yum remove -y openstack-nova-common
+    yum remove -y libvirt openstack-nova-common
+    rm -rf /etc/libvirt
+    rm -rf /var/{log,lib,run}/libvirt
     rm -rf /etc/nova
     rm -rf /var/{log,lib,run}/nova
 }
 
 remove_neutron() {
-    yum remove -y openstack-neutron
+    yum remove -y openvswitch openstack-neutron
+    rm -rf /etc/openvswitch
+    rm -rf /var/{log,lib,run}/openvswitch
     rm -rf /etc/neutron
     rm -rf /var/{log,lib,run}/neutron
 }
