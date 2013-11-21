@@ -21,7 +21,7 @@ alias N_meta-cfg="openstack-config --set /etc/neutron/metadata_agent.ini"
 alias N_dhcp-cfg="openstack-config --set /etc/neutron/dhcp_agent.ini"
 alias N_l3-cfg="openstack-config --set /etc/neutron/l3_agent.ini"
 alias N_ml2-cfg="openstack-config --set /etc/neutron/plugins/ml2/ml2_conf.ini"
-alias N_lb-cfg="openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini"
+alias N_ovs-cfg="openstack-config --set /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
 alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 
 usage() {
@@ -186,6 +186,7 @@ backup_cfg_file /etc/glance/glance-api.conf
 backup_cfg_file /etc/glance/glance-registry.conf
 
 glance-api-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
+glance-api-cfg keystone_authtoken auth_uri http://$OS_MY_IP:5000/v2.0
 glance-api-cfg keystone_authtoken auth_host $OS_MY_IP
 glance-api-cfg keystone_authtoken admin_tenant_name service
 glance-api-cfg keystone_authtoken admin_user glance
@@ -193,6 +194,7 @@ glance-api-cfg keystone_authtoken admin_password $OS_GLANCE_PW
 glance-api-cfg paste_deploy flavor keystone
 
 glance-reg-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
+glance-reg-cfg keystone_authtoken auth_uri http://$OS_MY_IP:5000/v2.0
 glance-reg-cfg keystone_authtoken auth_host $OS_MY_IP
 glance-reg-cfg keystone_authtoken admin_tenant_name service
 glance-reg-cfg keystone_authtoken admin_user glance
@@ -231,6 +233,7 @@ cinder-cfg DEFAULT iscsi_ip_address $OS_ISCSI_IP
 cinder-cfg DEFAULT volume_group $OS_ISCSI_VG
 cinder-cfg DEFAULT sql_connection mysql://cinder:$pw@$OS_MY_IP/cinder
 cinder-cfg DEFAULT auth_strategy keystone
+cinder-cfg keystone_authtoken auth_uri http://$OS_MY_IP:5000/v2.0
 cinder-cfg keystone_authtoken auth_host $OS_MY_IP
 cinder-cfg keystone_authtoken admin_tenant_name service
 cinder-cfg keystone_authtoken admin_user cinder
@@ -252,7 +255,7 @@ service openstack-cinder-scheduler start
 }
 
 ##
-## Install OpenStack Quantum
+## Install OpenStack Neutron
 ##
 install_neutron()
 {
@@ -270,19 +273,20 @@ backup_cfg_file /etc/neutron/metadata_agent.ini
 backup_cfg_file /etc/neutron/dhcp_agent.ini
 backup_cfg_file /etc/neutron/l3_agent.ini
 backup_cfg_file /etc/neutron/plugins/ml2/ml2_conf.ini
-backup_cfg_file /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini
+backup_cfg_file /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
 
 neutron-cfg DEFAULT core_plugin neutron.plugins.ml2.plugin.Ml2Plugin
 neutron-cfg DEFAULT service_plugins neutron.services.l3_router.l3_router_plugin.L3RouterPlugin
 neutron-cfg DEFAULT rpc_backend neutron.openstack.common.rpc.impl_qpid
 neutron-cfg DEFAULT qpid_hostname $OS_MY_IP
 neutron-cfg DEFAULT auth_strategy keystone
+neutron-cfg keystone_authtoken auth_uri http://$OS_MY_IP:5000/v2.0
 neutron-cfg keystone_authtoken auth_host $OS_MY_IP
 neutron-cfg keystone_authtoken admin_tenant_name service
 neutron-cfg keystone_authtoken admin_user neutron
 neutron-cfg keystone_authtoken admin_password $OS_NEUTRON_PW
 neutron-cfg agent root_helper "sudo neutron-rootwrap /etc/neutron/rootwrap.conf"
-neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+neutron-cfg securitygroup firewall_driver neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
 N_meta-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 N_meta-cfg DEFAULT auth_region Region1
@@ -291,14 +295,13 @@ N_meta-cfg DEFAULT admin_user neutron
 N_meta-cfg DEFAULT admin_password $OS_NEUTRON_PW
 N_meta-cfg DEFAULT metadata_proxy_shared_secret 1234567890
 
-N_dhcp-cfg DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
+N_dhcp-cfg DEFAULT interface_driver neutron.agent.linux.interface.OVSInterfaceDriver
 N_dhcp-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 N_dhcp-cfg DEFAULT admin_tenant_name service
 N_dhcp-cfg DEFAULT admin_user neutron
 N_dhcp-cfg DEFAULT admin_password $OS_NEUTRON_PW
 
-N_l3-cfg DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
-N_l3-cfg DEFAULT external_network_bridge ""
+N_l3-cfg DEFAULT interface_driver neutron.agent.linux.interface.OVSInterfaceDriver
 N_l3-cfg DEFAULT auth_url http://$OS_MY_IP:35357/v2.0
 N_l3-cfg DEFAULT admin_tenant_name service
 N_l3-cfg DEFAULT admin_user neutron
@@ -306,27 +309,29 @@ N_l3-cfg DEFAULT admin_password $OS_NEUTRON_PW
 
 N_ml2-cfg ml2 type_drivers vlan
 N_ml2-cfg ml2 tenant_network_types vlan
-N_ml2-cfg ml2 mechanism_drivers linuxbridge
+N_ml2-cfg ml2 mechanism_drivers openvswitch
 N_ml2-cfg ml2_type_vlan network_vlan_ranges physnet:$OS_NET_VLANS
 N_ml2-cfg database sql_connection mysql://neutron:$pw@$OS_MY_IP/neutron
 
-N_lb-cfg linux_bridge physical_interface_mappings physnet:$OS_DATA_IF
+N_ovs-cfg ovs bridge_mappings physnet:br-$OS_DATA_IF
 
 if [ ! -L /etc/neutron/plugin.ini ]; then
     ln -s plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini
 fi
 
+chkconfig openvswitch on
 chkconfig neutron-server on
 chkconfig neutron-metadata-agent on
 chkconfig neutron-dhcp-agent on
 chkconfig neutron-l3-agent on
-chkconfig neutron-linuxbridge-agent on
+chkconfig neutron-openvswitch-agent on
 
+service openvswitch start
 service neutron-server start
 service neutron-metadata-agent start
 service neutron-dhcp-agent start
 service neutron-l3-agent start
-service neutron-linuxbridge-agent start
+service neutron-openvswitch-agent start
 }
 
 ##
@@ -359,13 +364,13 @@ nova-cfg DEFAULT network_api_class nova.network.neutronv2.api.API
 nova-cfg DEFAULT security_group_api neutron
 nova-cfg DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
 nova-cfg DEFAULT neutron_url http://$OS_MY_IP:9696
-nova-cfg DEFAULT neutron_auth_strategy keystone
 nova-cfg DEFAULT neutron_admin_auth_url http://$OS_MY_IP:35357/v2.0
 nova-cfg DEFAULT neutron_admin_tenant_name service
 nova-cfg DEFAULT neutron_admin_username neutron
 nova-cfg DEFAULT neutron_admin_password $OS_NEUTRON_PW
 
 nova-cfg DEFAULT auth_strategy keystone
+nova-cfg keystone_authtoken auth_uri http://$OS_MY_IP:5000/v2.0
 nova-cfg keystone_authtoken auth_host $OS_MY_IP
 nova-cfg keystone_authtoken admin_tenant_name service
 nova-cfg keystone_authtoken admin_user nova
