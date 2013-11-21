@@ -53,6 +53,9 @@ backup_cfg_file /etc/nova/nova.conf
 service messagebus start
 service libvirtd start
 
+virsh net-destroy default
+virsh net-undefine default
+
 nova-cfg DEFAULT qpid_hostname $OS_CTL_IP
 nova-cfg DEFAULT glance_host $OS_CTL_IP
 
@@ -88,6 +91,13 @@ service openstack-nova-compute start
 yum install -y openstack-neutron-linuxbridge openstack-neutron-openvswitch
 backup_cfg_file /etc/neutron/neutron.conf
 backup_cfg_file /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
+
+chkconfig openvswitch on
+service openvswitch start
+
+ovs-vsctl add-br br-int
+ovs-vsctl add-br br-$OS_DATA_IF
+ovs-vsctl add-port br-$OS_DATA_IF $OS_DATA_IF
 
 neutron-cfg DEFAULT rpc_backend neutron.openstack.common.rpc.impl_qpid
 neutron-cfg DEFAULT qpid_hostname $OS_CTL_IP
