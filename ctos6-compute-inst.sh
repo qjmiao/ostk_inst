@@ -50,7 +50,10 @@ yum install -y openstack-utils
 yum install -y openstack-nova-compute
 backup_cfg_file /etc/nova/nova.conf
 
-service messagebus start
+if !(service messagebus status &> /dev/null); then
+    service messagebus start
+fi
+
 service libvirtd start
 
 virsh net-destroy default
