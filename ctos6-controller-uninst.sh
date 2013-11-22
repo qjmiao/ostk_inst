@@ -5,18 +5,22 @@ set -u
 MYSQL_PW=${MYSQL_PW:-admin}
 
 usage() {
-    echo "Usage: $(basename $0) [WHAT]"
+    cat <<EOF
+Usage: $(basename $0) <all|horizon|nova|neutron|cinder|glance|keystone>
+EOF
 
     exit 1
 }
 
 remove_horizon() {
-    yum remove -y --remove-leaves openstack-dashboard
+    yum remove -y openstack-dashboard
     rm -rf /etc/openstack-dashboard
 }
 
 remove_nova() {
-    yum remove -y --remove-leaves openstack-nova openstack-nova-novncproxy
+    yum remove -y libvirt openstack-nova-common
+    rm -rf /etc/libvirt
+    rm -rf /var/{log,lib,run}/libvirt
     rm -rf /etc/nova
     rm -rf /var/{log,lib,run}/nova
 
@@ -27,7 +31,9 @@ EOF
 }
 
 remove_neutron() {
-    yum remove -y --remove-leaves openstack-neutron-ml2 openstack-neutron-linuxbridge openstack-neutron-openvswitch
+    yum remove -y openvswitch openstack-neutron
+    rm -rf /etc/openvswitch
+    rm -rf /var/{log,lib,run}/openvswitch
     rm -rf /etc/neutron
     rm -rf /var/{log,lib,run}/neutron
 
@@ -38,7 +44,7 @@ EOF
 }
 
 remove_cinder() {
-    yum remove -y --remove-leaves openstack-cinder
+    yum remove -y openstack-cinder
     rm -rf /etc/cinder
     rm -rf /var/{log,lib,run}/cinder
 
@@ -49,7 +55,7 @@ EOF
 }
 
 remove_glance() {
-    yum remove -y --remove-leaves openstack-glance
+    yum remove -y openstack-glance
     rm -rf /etc/glance
     rm -rf /var/{log,lib,run}/glance
 
@@ -60,7 +66,7 @@ EOF
 }
 
 remove_keystone() {
-    yum remove -y --remove-leaves openstack-keystone
+    yum remove -y openstack-keystone
     rm -rf /etc/keystone
     rm -rf /var/{log,lib,run}/keystone
 
@@ -75,6 +81,15 @@ if [ $# != 1 ]; then
 fi
 
 case $1 in
+all)
+    remove_horizon
+    remove_nova
+    remove_neutron
+    remove_cinder
+    remove_glance
+    remove_keystone
+    ;;
+
 horizon)
     remove_horizon
     ;;
