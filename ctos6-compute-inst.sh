@@ -18,7 +18,7 @@ alias N_ovs-cfg="openstack-config --set /etc/neutron/plugins/openvswitch/ovs_neu
 
 usage() {
     cat <<EOF
-Usage: $(basename $0) <all|ostk-utils|nova-compute|ovs-agent>
+Usage: $(basename $0) <cfg-file> <all|ostk-utils|nova-compute|ovs-agent>
 EOF
 
     exit 1
