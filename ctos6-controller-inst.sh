@@ -25,8 +25,11 @@ alias N_ovs-cfg="openstack-config --set /etc/neutron/plugins/openvswitch/ovs_neu
 alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 
 usage() {
-echo "Usage: $(basename $0) <CFG_FILE> <WHAT>"
-exit 1
+    cat <<EOF
+Usage: $(basename $0) <cfg-file> <mysql|qpid|ostk-all|ostk-utils|keystone|glance|cinder|neutron|nova|nova-compute|horizon>
+EOF
+
+    exit 1
 }
 
 backup_cfg_file() {
@@ -186,6 +189,7 @@ backup_cfg_file /etc/glance/glance-api.conf
 backup_cfg_file /etc/glance/glance-registry.conf
 
 glance-api-cfg DEFAULT sql_connection mysql://glance:$pw@$OS_MY_IP/glance
+glance-api-cfg DEFAULT known_stores glance.store.filesystem.Store
 glance-api-cfg keystone_authtoken auth_uri http://$OS_MY_IP:5000/v2.0
 glance-api-cfg keystone_authtoken auth_host $OS_MY_IP
 glance-api-cfg keystone_authtoken admin_tenant_name service
@@ -408,13 +412,13 @@ service openstack-nova-scheduler start
 ##
 ## Setup nova-compute
 ##
-install_compute()
+install_nova-compute()
 {
+nova-cfg DEFAULT glance_host $OS_MY_IP
+
 if [ ! -c /dev/kvm ]; then
     nova-cfg DEFAULT libvirt_type qemu
 fi
-
-nova-cfg DEFAULT glance_host $OS_MY_IP
 
 nova-cfg DEFAULT vncserver_listen $OS_MY_IP
 nova-cfg DEFAULT vncserver_proxyclient_address $OS_MY_IP
@@ -466,7 +470,17 @@ qpid)
     install_qpid
     ;;
 
-utils)
+ostk-all)
+    yum install -y openstack-utils
+    install_keystone
+    install_glance
+    install_cinder
+    install_neutron
+    install_nova
+    install_horizon
+    ;;
+
+ostk-utils)
     yum install -y openstack-utils
     ;;
 
@@ -494,8 +508,8 @@ horizon)
     install_horizon
     ;;
 
-compute)
-    install_compute
+nova-compute)
+    install_nova-compute
     ;;
 
 *)
