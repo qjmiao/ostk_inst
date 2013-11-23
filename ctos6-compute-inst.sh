@@ -12,29 +12,17 @@ set -u
 ## </etc/hosts>
 ##=== PREINST ===
 
-usage() {
-echo "Usage: $(basename $0) <CFG_FILE>"
-exit 1
-}
-
-if [ $# != 1 ]; then
-    usage
-fi
-
-source $1
-
-OS_CTL_IP=${OS_CTL_IP:-192.168.1.1}
-OS_ADMIN_IF=${OS_ADMIN_IF:-eth0}
-OS_DATA_IF=${OS_DATA_IF:-eth1}
-
-OS_NEUTRON_PW=${OS_NEUTRON_PW:-neutron}
-OS_NOVA_PW=${OS_NOVA_PW:-nova}
-
-OS_MY_IP=$(ip addr show dev $OS_ADMIN_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
-
 alias nova-cfg="openstack-config --set /etc/nova/nova.conf"
 alias neutron-cfg="openstack-config --set /etc/neutron/neutron.conf"
 alias N_ovs-cfg="openstack-config --set /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini"
+
+usage() {
+    cat <<EOF
+Usage: $(basename $0) <all|ostk-utils|nova-compute|ovs-agent>
+EOF
+
+    exit 1
+}
 
 backup_cfg_file() {
 if [ ! -f $1.orig ]; then
@@ -42,11 +30,11 @@ if [ ! -f $1.orig ]; then
 fi
 }
 
-yum install -y openstack-utils
-
 ##
 ## openstack-nova-compute
 ##
+install_nova-compute()
+{
 yum install -y openstack-nova-compute
 backup_cfg_file /etc/nova/nova.conf
 
@@ -88,10 +76,13 @@ nova-cfg keystone_authtoken admin_password $OS_NOVA_PW
 
 chkconfig openstack-nova-compute on
 service openstack-nova-compute start
+}
 
 ##
 ## neutron-openvswitch-agent
 ##
+install_ovs-agent()
+{
 yum install -y openstack-neutron-linuxbridge openstack-neutron-openvswitch
 backup_cfg_file /etc/neutron/neutron.conf
 backup_cfg_file /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
@@ -112,3 +103,43 @@ N_ovs-cfg ovs bridge_mappings physnet:br-$OS_DATA_IF
 
 chkconfig neutron-openvswitch-agent on
 service neutron-openvswitch-agent start
+}
+
+if [ $# != 2 ]; then
+    usage
+fi
+
+source $1
+
+OS_CTL_IP=${OS_CTL_IP:-192.168.1.1}
+OS_ADMIN_IF=${OS_ADMIN_IF:-eth0}
+OS_DATA_IF=${OS_DATA_IF:-eth1}
+
+OS_NEUTRON_PW=${OS_NEUTRON_PW:-neutron}
+OS_NOVA_PW=${OS_NOVA_PW:-nova}
+
+OS_MY_IP=$(ip addr show dev $OS_ADMIN_IF | awk '/inet / {split($2, a, "/"); print a[1]}')
+
+case $2 in
+all)
+    yum install -y openstack-utils
+    install_nova-compute
+    install_ovs-agent
+    ;;
+
+ostk-utils)
+    yum install -y openstack-utils
+    ;;
+
+nova-compute)
+    install_nova-compute
+    ;;
+
+ovs-agent)
+    install_ovs-agent
+    ;;
+
+*)
+    usage
+    ;;
+esac
