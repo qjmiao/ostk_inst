@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Copyright (C) 2014 Eric Miao <qjmiao@gmail.com>. All rights reserved.
+# License: GPL
+#
 shopt -s expand_aliases
 set -e
 set -u
