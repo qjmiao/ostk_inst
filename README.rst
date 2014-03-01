@@ -15,10 +15,10 @@ Neutron setup uses (ML2 plugin + OVS) combination.
 
 Install and Setup CentOS
 ========================
-During CentOS installation, please (1) reserve one disk partition or
-(2) reverve free space on system LVM2 volume group.
+During CentOS-6.5 installation on controller node, please (1) reserve one disk partition
+or (2) reserve free space on system LVM2 volume group (for VM volumes).
 
-After CentOS-6.5/x86_64 is installed (on either controller node or compute node),
+After CentOS-6.5 is installed (on either controller node or compute node),
 please do the following setup:
 
 1. Disable SELinux::
@@ -60,8 +60,8 @@ Please refer to ``ctos6-repo.sh`` also.
 
     $ yum update
 
-Deployment Settings
-===================
+Installation Settings
+=====================
 Example <os.cfg> file::
 
   OS_CTL_IP=192.168.1.1
