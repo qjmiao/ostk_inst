@@ -11,18 +11,16 @@ Install and Setup CentOS
 After CentOS-6.5/x86_64 is installed (on either controller node or compute node),
 please do the following setup:
 
-1. Disable SELinux::
+1. Disable SELinux </etc/sysconfig/selinux>::
 
-   </etc/sysconfig/selinux>
    SELINUX=disabled
 
 2. Disable Firewall::
 
    $ lokkit --disabled
 
-3. Add static host entries::
+3. Add static host entries </etc/hosts>::
 
-   </etc/hosts>
    X.X.X.X os-controller
    X.X.X.X os-compute1
    X.X.X.X os-compute2
@@ -66,14 +64,19 @@ Example <os.cfg> file::
 
 Controller Node
 ===============
-``ctos6-controller-inst.sh``::
+<ctos6-controller-inst.sh>::
 
   $ ctos6-controller-inst.sh os.cfg mysql
   $ ctos6-controller-inst.sh os.cfg qpid
   $ ctos6-controller-inst.sh os.cfg ostk-all
 
+  # modify /etc/openstack-dashboard/local_settings
+  ALLOWED_HOSTS = ['*']
+
+  $ service httpd restart
+
 Compute Node
 ============
-``ctos6-compute-inst.sh``::
+<ctos6-compute-inst.sh>::
 
   $ ctos6-compute-inst.sh os.cfg all
