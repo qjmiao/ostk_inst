@@ -4,10 +4,20 @@ Install OpenStack on CentOS
 
 Overview
 ========
-Steps on how to install OpenStack Havana release on CentOS-6.5.
+This document describes how to install OpenStack Havana release on CentOS-6.5.
+
+The installation can be (1) single controller node plus multiple compute nodes
+or (2) all-in-one single node.
+
+Controller node also acts as storage node and network node.
+
+Neutron setup uses (ML2 plugin + OVS) combination.
 
 Install and Setup CentOS
 ========================
+During CentOS installation, please (1) reserve one disk partition or
+(2) reverve free space on system LVM2 volume group.
+
 After CentOS-6.5/x86_64 is installed (on either controller node or compute node),
 please do the following setup:
 
@@ -16,12 +26,12 @@ please do the following setup:
     # edit /etc/sysconfig/selinux
     SELINUX=disabled
 
-2. Disable Firewall::
+2. Disable firewall::
 
     $ lokkit --disabled
 
 3. Add static host entries::
-   
+
     # edit /etc/hosts
     X.X.X.X os-controller
     X.X.X.X os-compute1
@@ -29,9 +39,14 @@ please do the following setup:
 
 4. Reboot
 
+If one disk partition is dedicated for Cinder Service volume group::
+
+  $ pvcreate /dev/sdX
+  $ vgcreate cinder-volumes /dev/sdX
+
 Setup YUM Repositories
 ======================
-Please refer to ``ctos6-repo.sh`` also
+Please refer to ``ctos6-repo.sh`` also.
 
 1. EPEL-6 Repo::
 
@@ -77,8 +92,23 @@ Controller Node
 
   $ service httpd restart
 
+If you want controller node to run hypervisor and VMs::
+
+  $ ctos6-controller-inst.sh os.cfg nova-compute
+
 Compute Node
 ============
 <ctos6-compute-inst.sh>::
 
   $ ctos6-compute-inst.sh os.cfg all
+
+Uninstallation and Cleanups
+===========================
+
+Uninstall and cleanup compute node::
+
+  $ ctos6-compute-uninst.sh all
+
+Uninstall and cleanup controller node::
+
+  $ ctos6-controller-uninst.sh all
