@@ -11,19 +11,21 @@ Install and Setup CentOS
 After CentOS-6.5/x86_64 is installed (on either controller node or compute node),
 please do the following setup:
 
-1. Disable SELinux </etc/sysconfig/selinux>::
+1. Disable SELinux::
 
-   SELINUX=disabled
+    # edit /etc/sysconfig/selinux
+    SELINUX=disabled
 
 2. Disable Firewall::
 
-   $ lokkit --disabled
+    $ lokkit --disabled
 
-3. Add static host entries </etc/hosts>::
-
-   X.X.X.X os-controller
-   X.X.X.X os-compute1
-   X.X.X.X os-compute2
+3. Add static host entries::
+   
+    # edit /etc/hosts
+    X.X.X.X os-controller
+    X.X.X.X os-compute1
+    X.X.X.X os-compute2
 
 4. Reboot
 
@@ -33,15 +35,15 @@ Please refer to ``ctos6-repo.sh`` also
 
 1. EPEL-6 Repo::
 
-   $ rpm -i http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+    $ rpm -i http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
 
 2. RDO Repo::
 
-   $ rpm -i http://repos.fedorapeople.org/repos/openstack/openstack-havana/rdo-release-havana-7.noarch.rpm
+    $ rpm -i http://repos.fedorapeople.org/repos/openstack/openstack-havana/rdo-release-havana-7.noarch.rpm
 
 3. Update OS::
 
-   $ yum update
+    $ yum update
 
 Deployment Settings
 ===================
@@ -70,7 +72,7 @@ Controller Node
   $ ctos6-controller-inst.sh os.cfg qpid
   $ ctos6-controller-inst.sh os.cfg ostk-all
 
-  # modify /etc/openstack-dashboard/local_settings
+  # edit /etc/openstack-dashboard/local_settings
   ALLOWED_HOSTS = ['*']
 
   $ service httpd restart
